@@ -1,0 +1,1 @@
+var json_Nascente_13 = {"type":"FeatureCollection","name":"Nascente_13","crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}},"features":[{"type":"Feature","properties":{"fid":"1"},"geometry":{"type":"Point","coordinates":[-51.059947604044076,-27.566670857866516]}}]}

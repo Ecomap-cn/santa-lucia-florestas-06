@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Fazenda Arvoredo – Tabela de Uso do Solo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root{--border:#3f3f3f;--head:#f1f3f2;--green:#1aa84b;}
+    body{margin:0;padding:20px;font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;}
+    .header{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px;}
+    .header img{max-height:70px;width:auto;}
+    .title{font-size:22px;font-weight:800;text-align:center;border-bottom:2px solid #000;padding-bottom:8px;width:100%;}
+    .subtitle{font-size:15px;font-weight:700;text-align:center;color:#333;margin-top:-4px;}
+    .table-wrapper{width:100%;overflow-x:auto;margin:18px 0 28px;-webkit-overflow-scrolling:touch;}
+    table{width:100%;border-collapse:collapse;table-layout:auto;font-size:15px;min-width:480px;}
+    th,td{border:1px solid var(--border);padding:8px 10px;vertical-align:middle;}
+    th{background:var(--head);font-weight:800;text-align:center;}
+    .section-title th{background:#111;color:#fff;text-align:left;font-size:16px;letter-spacing:.2px;}
+    .desc{text-align:left;font-weight:700;}
+    tbody th.desc{background:transparent;}
+    td.num{text-align:right;font-weight:600;white-space:nowrap;}
+    td.center{text-align:center;}
+    .total-row td,.total-row th.desc{font-weight:800;background:#f3f6f3;}
+    .grand-total td,.grand-total th.desc{background:var(--green);color:#fff;font-weight:900;}
+    @media(max-width:768px){body{padding:12px}.title{font-size:20px}.subtitle{font-size:14px}.header img{max-height:60px}table{font-size:14px;min-width:440px}th,td{padding:7px 8px}}
+    .view-buttons{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
+    .view-buttons button{font:inherit;font-weight:700;cursor:pointer;border:1px solid #1c6035;border-radius:6px;padding:9px 14px;color:#1c6035;background:#fff;}
+    .view-buttons button[aria-pressed="true"]{color:#fff;background:#1c6035;}
+    .note{font-size:14px;line-height:1.5;margin:0 0 22px;}
+    .talhoes-table{max-width:560px;min-width:0;margin:auto;}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="images/logo-site-final-2.png" alt="Santa Lúcia Madeiras">
+    <div class="title">Tabela de Uso do Solo – Áreas</div>
+    <div class="subtitle">Fazenda Arvoredo</div>
+  </div>
+
+  <div class="view-buttons" role="group" aria-label="Visualização das áreas">
+    <button type="button" aria-controls="resumo" aria-pressed="true">Resumo de Áreas por Matrícula</button>
+    <button type="button" aria-controls="talhoes" aria-pressed="false">Tabela de Área dos Talhões</button>
+  </div>
+
+  <section id="resumo" aria-label="Resumo de Áreas por Matrícula">
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr class="section-title"><th colspan="4">USO DO SOLO</th></tr>
+          <tr><th rowspan="2" scope="col">Uso do Solo</th><th scope="col">Matrícula</th><th rowspan="2" scope="col">Total (ha)</th><th rowspan="2" scope="col">%</th></tr>
+          <tr><th scope="col">9.870 (ha)</th></tr>
+        </thead>
+        <tbody>
+          <tr class="total-row"><th scope="row">Matrícula</th><td class="num">29,654</td><td class="num">29,654</td><td class="num">100%</td></tr>
+          <tr class=""><th scope="row">Pinus 2025</th><td class="num">18,616</td><td class="num">18,616</td><td class="num">62,8%</td></tr>
+          <tr class=""><th scope="row">Estrada</th><td class="num">0,516</td><td class="num">0,516</td><td class="num">1,7%</td></tr>
+          <tr class=""><th scope="row">Faixa de Servidão</th><td class="num">2,718</td><td class="num">2,718</td><td class="num">9,2%</td></tr>
+          <tr class=""><th scope="row">Vegetação</th><td class="num">4,975</td><td class="num">4,975</td><td class="num">16,8%</td></tr>
+          <tr class=""><th scope="row">Banhado</th><td class="num">0,954</td><td class="num">0,954</td><td class="num">3,2%</td></tr>
+          <tr class=""><th scope="row">Açude</th><td class="num">0,074</td><td class="num">0,074</td><td class="num">0,2%</td></tr>
+          <tr class=""><th scope="row">APP Consolidado</th><td class="num">1,960</td><td class="num">1,960</td><td class="num">6,6%</td></tr>
+          <tr class=""><th scope="row">Sobreposição Estrada – Faixa de Servidão</th><td class="num">−0,026</td><td class="num">−0,026</td><td class="num">−0,1%</td></tr>
+          <tr class=""><th scope="row">Sobreposição APP – Faixa de Servidão</th><td class="num">−0,153</td><td class="num">−0,153</td><td class="num">−0,5%</td></tr>
+          <tr class="grand-total"><th scope="row">TOTAL</th><td class="num">29,634</td><td class="num">29,634</td><td class="num">100,0%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr class="section-title"><th colspan="4">PROJETO DE PLANTIO</th></tr>
+          <tr><th rowspan="2" scope="col">Projeto de Plantio</th><th scope="col">Matrícula</th><th rowspan="2" scope="col">Total (ha)</th><th rowspan="2" scope="col">%</th></tr>
+          <tr><th scope="col">9.870 (ha)</th></tr>
+        </thead>
+        <tbody>
+          <tr class=""><th scope="row">Pinus 2025</th><td class="num">18,631</td><td class="num">18,631</td><td class="num">100,0%</td></tr>
+          <tr class="grand-total"><th scope="row">TOTAL</th><td class="num">18,631</td><td class="num">18,631</td><td class="num">100,0%</td></tr>
+          <tr class="total-row"><th scope="row">GRAU DE UTILIZAÇÃO</th><td class="num">62,9%</td><td class="num">62,9%</td><td class="num"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <aside class="note" aria-label="Notas sobre as faixas de servidão">
+      <p>A faixa identificada no Webmap da EPE como LT 525 kV Abdon Batista–Biguaçu, C1 foi associada à servidão do R-4 da matrícula nº 9.870, que a descreve como LT Campos Novos–Blumenau C-2 e registra uma área de 2,4130 ha. Como o registro descreve o perímetro por azimutes e distâncias, sem informar coordenadas georreferenciadas dos vértices, a localização da faixa no mapa foi estimada com base no ortomosaico e em imagens de satélite.</p>
+      <p>A faixa da LT 525 kV Abdon Batista–Abdon Batista 2, C1 e C2 (circuito duplo), classificada pela EPE como expansão planejada, não consta na cópia da matrícula consultada. Sua representação no mapa foi estimada em 40 m para cada lado do eixo, adotando a largura total de 80 m declarada de utilidade pública pela Resolução Autorizativa ANEEL nº 15.973, de 18 de março de 2025. <a href="https://www2.aneel.gov.br/cedoc/rea202515973.pdf" target="_blank" rel="noopener">Resolução da ANEEL</a></p>
+    </aside>
+  </section>
+  <section id="talhoes" aria-label="Tabela de Área dos Talhões" hidden>
+    <div class="table-wrapper">
+      <table class="talhoes-table">
+        <thead>
+          <tr class="section-title"><th colspan="2">ÁREA DOS TALHÕES</th></tr>
+          <tr><th scope="col">ID_TALHAO</th><th scope="col">Área (ha)</th></tr>
+        </thead>
+        <tbody>
+          <tr class=""><th scope="row">AV_T001</th><td class="num">7,504</td></tr>
+          <tr class=""><th scope="row">AV_T002</th><td class="num">2,985</td></tr>
+          <tr class=""><th scope="row">AV_T003</th><td class="num">3,933</td></tr>
+          <tr class=""><th scope="row">AV_T004</th><td class="num">4,194</td></tr>
+          <tr class="grand-total"><th scope="row">TOTAL</th><td class="num">18,616</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <script>
+    const buttons = document.querySelectorAll('.view-buttons button');
+    buttons.forEach(button => {
+      button.addEventListener('click', () => {
+        buttons.forEach(view => {
+          const active = view === button;
+          view.setAttribute('aria-pressed', String(active));
+          document.getElementById(view.getAttribute('aria-controls')).hidden = !active;
+        });
+      });
+    });
+  </script>
+</body>
+</html>

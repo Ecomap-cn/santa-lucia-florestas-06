@@ -1,0 +1,2565 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="css/leaflet.css">
+        <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
+        <link rel="stylesheet" href="css/L.Control.Locate.min.css">
+        <link rel="stylesheet" href="css/qgis2web.css">
+        <link rel="stylesheet" href="css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="css/leaflet.photon.css">
+        <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        .map-logo{
+            position: absolute;
+            right: 10px;
+            bottom: 20px;
+            z-index: 1000;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            box-shadow: none;
+        }
+        .map-logo img{
+            display: block;
+            width: 150px;
+            height: auto;
+            max-width: 32vw;
+            opacity: 1;
+        }
+
+        /* Home (recenter) control */
+        .leaflet-control-home a{
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            display: block;
+            color: #111;
+            background: #fff;
+        }
+        .leaflet-control-home a:hover{
+            background: #f3f3f3;
+        }
+
+        /* Mobile tweaks */
+        @media (max-width: 768px){
+            .map-logo img{
+            display: block;
+            width: 150px;
+            height: auto;
+            max-width: 32vw;
+            opacity: 1;
+        }
+            .leaflet-control-home a{
+                width: 34px;
+                height: 34px;
+                line-height: 34px;
+            }
+        }
+        
+        /* ===== EcoMap Controls (Measure) ===== */
+        .ecomap-controls.leaflet-bar a{
+            width:34px; height:34px;
+            line-height:34px;
+            text-align:center;
+            font-size:16px;
+        }
+        .ecomap-controls.leaflet-bar a,
+        .ecomap-controls.leaflet-bar a:hover{
+            background: rgba(255,255,255,0.92);
+            color:#111;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+        }
+        .ecomap-controls.leaflet-bar a:last-child{
+            border-bottom:none;
+        }
+        .ecomap-controls .is-active{
+            background: #111 !important;
+            color: #fff !important;
+        }
+
+        .ecomap-measure-tooltip{
+            background: rgba(17,17,17,0.92);
+            color:#fff;
+            border:0;
+            border-radius:10px;
+            padding:8px 10px;
+            box-shadow: 0 10px 24px rgba(0,0,0,.25);
+            font-weight:700;
+            font-size:12px;
+        }
+        .ecomap-measure-tooltip:before{
+            border-top-color: rgba(17,17,17,0.92) !important;
+        }
+
+        .ecomap-hint{
+            position: absolute;
+            left: 12px;
+            bottom: 56px;
+            z-index: 980;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(17,17,17,0.70);
+            color: rgba(255,255,255,0.92);
+            font-size: 12px;
+            line-height: 1.3;
+            display:none;
+            max-width: 420px;
+            backdrop-filter: blur(6px);
+        }
+        @media (max-width: 700px){
+            .ecomap-hint{max-width: 88vw;}
+        }
+
+        
+
+        /* ===== EcoMap Controls (Anotações) ===== */
+        .ecomap-notes-controls.leaflet-bar a{
+            width:34px; height:34px;
+            line-height:34px;
+            text-align:center;
+            font-size:16px;
+        }
+        .ecomap-notes-controls.leaflet-bar a,
+        .ecomap-notes-controls.leaflet-bar a:hover{
+            background: rgba(255,255,255,0.92);
+            color:#111;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+        }
+        .ecomap-notes-controls.leaflet-bar a:last-child{
+            border-bottom:none;
+        }
+        .ecomap-notes-controls .is-active{
+            background: #111 !important;
+            color: #fff !important;
+        }
+  
+/* ===== EcoMap Controls: grupos colapsáveis (Trena / Anotações) ===== */
+.ecomap-group .ecomap-sub{ display:none; }
+.ecomap-group.is-open .ecomap-sub{ display:block; }
+
+/* garante centralização dos ícones dentro dos botões */
+.ecomap-controls.leaflet-bar a,
+.ecomap-notes-controls.leaflet-bar a{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* ícone principal de anotações (imagem) */
+.ecomap-notes-controls .ecomap-notes-main img{
+  width:18px;
+  height:18px;
+  display:block;
+}
+
+/* ícone polígono (SVG) */
+.ecomap-notes-controls .ecomap-ico-poly svg{
+  width:18px;
+  height:18px;
+  display:block;
+}
+
+
+/* durante desenho (Leaflet.draw), o polígono/linha temporários não podem "capturar" clique.
+   isso permite adicionar vértice mesmo clicando dentro do polígono em criação */
+#map.leaflet-draw-draw-polygon .leaflet-overlay-pane .leaflet-interactive,
+#map.leaflet-draw-draw-polyline .leaflet-overlay-pane .leaflet-interactive{
+  pointer-events: none !important;
+}
+/* EcoMap - Tabela flutuante de anotações */
+  #ecomapNotesTablePanel{
+    position:absolute;
+    /* mantém a tabela sempre à direita da coluna de botões (evita sobreposição) */
+    left: 54px;
+    right: 10px;
+    bottom: 56px;
+    z-index:9999;
+    background:rgba(0,0,0,0.72);
+    color:#fff;
+    padding:8px 10px;
+    border-radius:10px;
+    width:auto;
+    max-width:520px; /* evita ficar exagerada em telas maiores */
+    font-family: Arial, Helvetica, sans-serif;
+    font-size:12px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.35);
+    display:none;
+  }
+  /* tabela mais “enxuta” (sem espaço vazio à direita) */
+  #ecomapNotesTablePanel table{
+    width:100%;
+    border-collapse:collapse;
+    table-layout:auto;          /* permite a coluna de medições crescer */
+    min-width: 620px;           /* força scroll horizontal no mobile quando necessário */
+  }
+  #ecomapNotesTablePanel th:nth-child(1), #ecomapNotesTablePanel td:nth-child(1){ width:38%; }
+  #ecomapNotesTablePanel th:nth-child(2), #ecomapNotesTablePanel td:nth-child(2){ width:18%; }
+  #ecomapNotesTablePanel th:nth-child(3), #ecomapNotesTablePanel td:nth-child(3){ width:44%; }
+
+  #ecomapNotesTablePanel th, #ecomapNotesTablePanel td{
+    white-space:nowrap;
+  }
+  /* mantém elipse só nas colunas curtas */
+  #ecomapNotesTablePanel th:nth-child(1), #ecomapNotesTablePanel td:nth-child(1),
+  #ecomapNotesTablePanel th:nth-child(2), #ecomapNotesTablePanel td:nth-child(2){
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  /* coluna de medições: mostra completo (com rolagem horizontal) */
+  #ecomapNotesTablePanel th:nth-child(3), #ecomapNotesTablePanel td:nth-child(3){
+    overflow:visible;
+    text-overflow:clip;
+  }
+
+  /* rolagem vertical e limite de altura (para não subir demais) */
+  #ecomapNotesTableWrap{
+    max-height:160px;
+    overflow-y:auto;
+    overflow-x:auto;            /* rolagem horizontal para coordenadas */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  @media (max-width: 768px){
+    #ecomapNotesTablePanel{
+      left: 52px;
+      right: 8px;
+      bottom: 52px;
+      max-width:none; /* usa o right/left como limite */
+    }
+    #ecomapNotesTableWrap{ max-height:140px; }
+  }
+
+  #ecomapNotesTablePanel h4{
+    margin:0 0 8px 0;
+    font-size:12px;
+    font-weight:bold;
+    letter-spacing:0.2px;
+  }
+  #ecomapNotesTablePanel table{
+    width:100%;
+    border-collapse:collapse;
+  }
+  #ecomapNotesTablePanel th, #ecomapNotesTablePanel td{
+    border-bottom:1px solid rgba(255,255,255,0.18);
+    padding:4px 6px;
+    text-align:left;
+    vertical-align:top;
+  }
+  #ecomapNotesTablePanel th{
+    font-weight:bold;
+    opacity:0.95;
+  }
+  #ecomapNotesTablePanel .small{ opacity:0.9; font-size:11px; }
+
+  /* EcoMap - Botão da tabela (somente mobile; aparece quando houver feições) */
+  .ecomap-notes-tablebtn{ display:block; }
+  @media (max-width: 768px){
+    .ecomap-notes-tablebtn{ display:block; }
+  }
+
+
+        /* ===== Anotações: reduzir área clicável dos vértices (evita "travamento" perto do 1º ponto em zoom baixo) ===== */
+        .notes-vertex-icon{
+            width: 8px !important;
+            height: 8px !important;
+            margin-left: -4px !important;
+            margin-top: -4px !important;
+            border: 2px solid #fff !important;
+            background: #111 !important;
+            border-radius: 50% !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.35);
+        }
+    
+
+  /* ===== EcoMap: Barra Finalizar/Cancelar (mobile + desktop) ===== */
+  #ecomapFinishBar{
+    position:absolute;
+    left:50%;
+    transform:translateX(-50%);
+    bottom: 95px;
+    z-index:10000;
+    display:none;
+    gap:10px;
+    align-items:center;
+    justify-content:center;
+    background:rgba(0,0,0,0.72);
+    padding:10px 12px;
+    border-radius:999px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.35);
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  #ecomapFinishBar button{
+    border:0;
+    border-radius:999px;
+    padding:10px 14px;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+  }
+  #ecomapFinishBar .btn-ok{ background:#ffffff; color:#111; }
+  #ecomapFinishBar .btn-cancel{ background:rgba(255,255,255,0.14); color:#fff; border:1px solid rgba(255,255,255,0.25); }
+  @media (max-width: 768px){
+    #ecomapFinishBar{ bottom: 120px; width: calc(100vw - 24px); max-width: 520px; }
+    #ecomapFinishBar button{ flex:1; }
+  }
+
+
+
+        /* Toggle Matrículas labels */
+        /* Botão 123 */
+        .ecomap-labels-controls.leaflet-bar a{
+            width:34px; height:34px;
+            line-height:34px;
+            text-align:center;
+            font-size:13px;
+            font-weight:800;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background: rgba(255,255,255,0.92);
+            color:#111;
+            text-decoration:none;
+        }
+        .ecomap-labels-controls.leaflet-bar a:hover{ background:#f3f3f3; }
+        .ecomap-labels-controls.leaflet-bar a.is-active{
+            background:#111 !important;
+            color:#fff !important;
+        }
+
+
+
+
+        .map-logo { pointer-events: none; }
+        .entrada-label-icon { background: transparent; border: 0; }
+        .entrada-label {
+            display: block;
+            position: absolute;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font: 700 8pt/1.25 "Open Sans", Arial, sans-serif;
+            paint-order: stroke fill;
+            -webkit-text-stroke: 2mm #000;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .entrada-matricula-label { font-size: 12pt; pointer-events: none; }
+        button.entrada-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            top: 0;
+            left: 0;
+            margin: 0;
+            padding: 3px 5px;
+            line-height: 1.15;
+            -webkit-text-stroke: 3px #000;
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        .leaflet-zoom-anim button.entrada-label { visibility: hidden !important; }
+        .entrada-label[aria-pressed="true"] { color: #ffe36e; }
+        .entrada-label:focus-visible { outline: 2px solid #ffe36e; border-radius: 4px; }
+        .leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+            display: block;
+            margin-left: auto;
+        }
+        .leaflet-control-layers label:has(.doc-link) input { display: none; }
+
+        .arvoredo-overlap { fill: url(#arvoredo-overlap-pattern); }
+        .arvoredo-banhado { fill: url(#arvoredo-banhado-pattern); }
+        .leaflet-control-layers-expanded .leaflet-control-layers-list {
+            max-height: 72vh;
+            overflow: auto;
+        }
+        </style>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
+        <title>Fazenda Arvoredo | Santa Lúcia Madeiras</title>
+    </head>
+    <body>
+        <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <pattern id="arvoredo-overlap-pattern" patternUnits="userSpaceOnUse" width="9" height="9">
+      <circle cx="2" cy="2" r="1.13" fill="#e41a1c"/>
+    </pattern>
+    <pattern id="arvoredo-banhado-pattern" patternUnits="userSpaceOnUse" width="30" height="30" viewBox="0 0 580 580">
+<path d="m468.645 448.746h-376.798c-3.313 0-6 2.687-6 6s2.687 6 6 6h376.797c3.313 0 6-2.687 6-6s-2.686-6-5.999-6z" fill="#1fff00" fill-opacity="1" stroke="#5eea20" stroke-opacity="1" stroke-width="4"/>
+<path d="m211.594 329.862c.01 0 .021.001.031.001 4.286 0 7.769-3.467 7.786-7.756l.33-83.398c.017-4.3-3.456-7.8-7.756-7.817-.01 0-.021 0-.031 0-4.286 0-7.769 3.466-7.786 7.756l-.33 83.397c-.017 4.301 3.456 7.801 7.756 7.817z" fill="#1fff00" fill-opacity="1" stroke="#5eea20" stroke-opacity="1" stroke-width="4"/>
+<path d="m231.229 329.188c1.099.536 2.263.79 3.408.79 2.884 0 5.655-1.608 7.004-4.374l26.371-54.06c1.885-3.865.28-8.527-3.584-10.413-3.866-1.885-8.527-.28-10.413 3.584l-26.371 54.06c-1.885 3.866-.28 8.528 3.585 10.413z" fill="#1fff00" fill-opacity="1" stroke="#5eea20" stroke-opacity="1" stroke-width="4"/>
+<path d="m256.28 327.638c1.516 1.485 3.483 2.226 5.45 2.226 2.019 0 4.037-.781 5.562-2.337l32.305-32.963c3.01-3.071 2.96-8.001-.111-11.011-3.072-3.012-8.004-2.96-11.011.111l-32.304 32.963c-3.012 3.07-2.963 8 .109 11.011z" fill="#1fff00" fill-opacity="1" stroke="#5eea20" stroke-opacity="1" stroke-width="4"/>
+<path d="m182.183 325.104c1.224 3.033 4.142 4.875 7.223 4.875.97 0 1.957-.183 2.911-.568 3.988-1.609 5.917-6.146 4.307-10.135l-22.745-56.367c-1.609-3.989-6.148-5.916-10.134-4.307-3.988 1.609-5.917 6.146-4.307 10.134z" fill="#1fff00" fill-opacity="1" stroke="#5eea20" stroke-opacity="1" stroke-width="4"/>
+<path d="m156.812 327.582c1.521 1.521 3.513 2.281 5.506 2.281s3.985-.761 5.506-2.281c3.041-3.041 3.041-7.971 0-11.012l-31.975-31.974c-3.041-3.041-7.971-3.041-11.012 0s-3.041 7.971 0 11.012z" fill="#1fff00" fill-opacity="1" stroke="#5eea20" stroke-opacity="1" stroke-width="4"/>
+<path d="m411.594 233.863c.011 0 .021 0 .032 0 4.286 0 7.769-3.466 7.785-7.756l.33-83.398c.018-4.3-3.455-7.8-7.755-7.817-.011 0-.021 0-.032 0-4.286 0-7.769 3.466-7.785 7.756l-.33 83.398c-.018 4.3 3.455 7.8 7.755 7.817z" fill="#1fff00" fill-opacity="1" stroke="#5eea20" stroke-opacity="1" stroke-width="4"/>
+<path d="m431.229 233.188c1.1.536 2.263.79 3.408.79 2.884 0 5.655-1.609 7.004-4.375l26.37-54.06c1.886-3.865.281-8.526-3.584-10.412-3.868-1.886-8.527-.28-10.412 3.585l-26.37 54.06c-1.885 3.865-.281 8.527 3.584 10.412z" fill="#1fff00" fill-opacity="1" stroke="#5eea20" stroke-opacity="1" stroke-width="4"/>
+<path d="m456.279 231.638c1.516 1.485 3.483 2.226 5.449 2.226 2.02 0 4.037-.781 5.563-2.336l32.305-32.963c3.01-3.071 2.96-8.001-.111-11.011-3.072-3.012-8.002-2.959-11.012.111l-32.305 32.963c-3.01 3.07-2.96 8 .111 11.01z" fill="#1fff00" fill-opacity="1" stroke="#5eea20" stroke-opacity="1" stroke-width="4"/>
+<path d="m382.184 229.104c1.224 3.034 4.142 4.875 7.224 4.875.97 0 1.956-.183 2.911-.568 3.987-1.609 5.916-6.146 4.307-10.134l-22.745-56.368c-1.609-3.988-6.145-5.917-10.135-4.307-3.987 1.609-5.916 6.146-4.307 10.134z" fill="#1fff00" fill-opacity="1" stroke="#5eea20" stroke-opacity="1" stroke-width="4"/>
+<path d="m356.812 231.583c1.521 1.521 3.513 2.281 5.506 2.281s3.985-.76 5.506-2.281c3.041-3.041 3.041-7.971 0-11.012l-31.975-31.975c-3.041-3.041-7.971-3.041-11.012 0-3.041 3.041-3.041 7.971 0 11.012z" fill="#1fff00" fill-opacity="1" stroke="#5eea20" stroke-opacity="1" stroke-width="4"/>
+<path d="m516.071 388.746h-169.651c-3.313 0-6 2.687-6 6s2.687 6 6 6h169.651c3.313 0 6-2.687 6-6s-2.686-6-6-6z" fill="#1fff00" fill-opacity="1" stroke="#5eea20" stroke-opacity="1" stroke-width="4"/>
+    </pattern>
+  </defs>
+</svg>
+        <div id="map">
+        </div>
+        <div id="ecomapFinishBar" aria-hidden="true">
+          <button type="button" class="btn-ok" id="ecomapBtnFinish">Finalizar</button>
+          <button type="button" class="btn-cancel" id="ecomapBtnCancel">Cancelar</button>
+        </div>
+        <div id="ecomapHint" class="ecomap-hint" aria-hidden="true"></div>
+        <div class="map-logo" aria-hidden="true">
+            <img src="images/logo-site-final-2.png" alt="Santa Lúcia Madeiras" />
+        </div>
+
+
+        <script src="js/leaflet.js"></script>
+        <script src="js/L.Control.Layers.Tree.min.js"></script>
+        <script src="js/L.Control.Locate.min.js"></script>
+        <script src="js/multi-style-layer.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/leaflet.photon.js"></script>
+        <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+        <script src="data/APPFaixadeServido_7.js"></script>
+        <script src="data/EstradaFaixadeServido_8.js"></script>
+        <script src="data/APP_9.js"></script>
+        <script src="data/Aude_10.js"></script>
+        <script src="data/Banhado_11.js"></script>
+        <script src="data/CursoDgua_12.js"></script>
+        <script src="data/Nascente_13.js"></script>
+        <script src="data/Vegetao_14.js"></script>
+        <script src="data/FaixadeServido_15.js"></script>
+        <script src="data/RedeEltrica_16.js"></script>
+        <script src="data/Estrada_17.js"></script>
+        <script src="data/Talhes_18.js"></script>
+        <script src="data/Pinus2025_19.js"></script>
+        <script src="data/Matrcula9870_20.js"></script>
+        <script src="data/matricula_dot_21.js"></script>
+        <script>
+        var arvoredoBounds = [[-27.575061359434475,-51.070466524095565],[-27.56338489775313,-51.04623474457588]];
+        var map = L.map('map', {
+            zoomControl:false, maxZoom:28, minZoom:1
+        }).fitBounds(arvoredoBounds);
+        var hash = new L.Hash(map);
+        map.attributionControl.setPrefix('<a href="https://github.com/qgis2web/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
+        var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
+        // remove popup's row if "visible-with-data"
+        function removeEmptyRowsFromPopupContent(content, feature) {
+         var tempDiv = document.createElement('div');
+         tempDiv.innerHTML = content;
+         var rows = tempDiv.querySelectorAll('tr');
+         for (var i = 0; i < rows.length; i++) {
+             var td = rows[i].querySelector('td.visible-with-data');
+             var key = td ? td.id : '';
+             if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
+                 rows[i].parentNode.removeChild(rows[i]);
+             }
+         }
+         return tempDiv.innerHTML;
+        }
+        // modify popup if contains media
+        function addClassToPopupIfMedia(content, popup) {
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = content;
+            var imgTd = tempDiv.querySelector('td img');
+            if (imgTd) {
+                var src = imgTd.getAttribute('src');
+                if (/\.(jpg|jpeg|png|gif|bmp|webp|avif)$/i.test(src)) {
+                    popup._contentNode.classList.add('media');
+                    setTimeout(function() {
+                        popup.update();
+                    }, 10);
+                } else if (/\.(mp3|wav|ogg|aac)$/i.test(src)) {
+                    var audio = document.createElement('audio');
+                    audio.controls = true;
+                    audio.src = src;
+                    imgTd.parentNode.replaceChild(audio, imgTd);
+                    popup._contentNode.classList.add('media');
+                    setTimeout(function() {
+                        popup.setContent(tempDiv.innerHTML);
+                        popup.update();
+                    }, 10);
+                } else if (/\.(mp4|webm|ogg|mov)$/i.test(src)) {
+                    var video = document.createElement('video');
+                    video.controls = true;
+                    video.src = src;
+                    video.style.width = "400px";
+                    video.style.height = "300px";
+                    video.style.maxHeight = "60vh";
+                    video.style.maxWidth = "60vw";
+                    imgTd.parentNode.replaceChild(video, imgTd);
+                    popup._contentNode.classList.add('media');
+                    // Aggiorna il popup quando il video carica i metadati
+                    video.addEventListener('loadedmetadata', function() {
+                        popup.update();
+                    });
+                    setTimeout(function() {
+                        popup.setContent(tempDiv.innerHTML);
+                        popup.update();
+                    }, 10);
+                } else {
+                    popup._contentNode.classList.remove('media');
+                }
+            } else {
+                popup._contentNode.classList.remove('media');
+            }
+        }
+        var zoomControl = L.control.zoom({
+            position: 'topleft'
+        }).addTo(map);
+        L.control.locate({locateOptions: {maxZoom: 19}}).addTo(map);
+/* ====== Home / Recenter control (Casinha) ====== */
+        var HomeControl = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: function(map) {
+                var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-home');
+                var link = L.DomUtil.create('a', '', container);
+                link.href = '#';
+                link.title = 'Recentrar o mapa na Fazenda Arvoredo';
+                link.setAttribute('aria-label', 'Recentrar o mapa na Fazenda Arvoredo');
+                link.innerHTML = '<i class="fas fa-home"></i>';
+                L.DomEvent.disableClickPropagation(container);
+                L.DomEvent.on(link, 'click', function(e) {
+                    L.DomEvent.stop(e);
+                    map.fitBounds(arvoredoBounds);
+                });
+                return container;
+            }
+        });
+        map.addControl(new HomeControl());
+
+        // ===== Trena EcoMap (com casas decimais + área/perímetro) =====
+        // Como usar:
+        // 1) Clique na régua para ativar
+        // 2) Clique no mapa para adicionar pontos
+        // 3) Duplo-clique para finalizar
+        // 4) Botão 🗑 para limpar
+        var hintEl = document.getElementById('ecomapHint');
+
+        function showHint(html){
+            if(!hintEl) return;
+            hintEl.innerHTML = html;
+            hintEl.style.display = 'block';
+        }
+        function hideHint(){
+            if(!hintEl) return;
+            hintEl.style.display = 'none';
+        }
+
+        function formatPtBR(n, decimals){
+            try{
+                return n.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+            }catch(e){
+                var s = n.toFixed(decimals);
+                return s.replace('.', ',');
+            }
+        }
+
+        function formatArea(m2){
+            if(m2 >= 10000){
+                return formatPtBR(m2/10000, 4) + ' ha';
+            }
+            return formatPtBR(m2, 2) + ' m²';
+        }
+
+        // Cálculo de área geodésica (sem dependências externas)
+        // Fórmula esférica (variação Chamberlain & Duquette), usada em diversas ferramentas Leaflet.
+        function geodesicArea(latLngs){
+            var points = latLngs;
+            if(!points || points.length < 3) return 0;
+
+            var radius = 6378137; // WGS84 (m)
+            var area = 0;
+
+            for (var i = 0, len = points.length; i < len; i++) {
+                var p1 = points[i];
+                var p2 = points[(i + 1) % len];
+
+                var lon1 = p1.lng * Math.PI / 180;
+                var lon2 = p2.lng * Math.PI / 180;
+                var lat1 = p1.lat * Math.PI / 180;
+                var lat2 = p2.lat * Math.PI / 180;
+
+                area += (lon2 - lon1) * (2 + Math.sin(lat1) + Math.sin(lat2));
+            }
+
+            area = area * radius * radius / 2.0;
+            return Math.abs(area);
+        }
+
+        function formatDistance(meters){
+            if(meters >= 1000){
+                return formatPtBR(meters/1000, 3) + ' km';
+            }
+            return formatPtBR(meters, 2) + ' m';
+        }
+
+        var measureActive = false;
+        var measurePolygon = null;
+        var measurePoints = [];
+        var measureLine = null;
+        var tempLine = null;
+        
+// Pane acima dos overlays para desenhar a Trena EcoMap sempre visível
+map.createPane('pane_EcoMapMeasure');
+map.getPane('pane_EcoMapMeasure').style.zIndex = 100000;
+// Renderer dedicado para garantir que os vetores da trena sejam desenhados neste pane
+var ecomapMeasureRenderer = L.svg({ pane: 'pane_EcoMapMeasure' });
+// Garante que a trena fique sempre ACIMA dos ortomosaicos (panes do qgis2web)
+function ecomapBringMeasureToFront(){
+    try{
+        // pane da trena
+        var p = map.getPane('pane_EcoMapMeasure');
+        if(p) p.style.zIndex = 100000;
+
+        // tooltips/popups acima também
+        var tp = map.getPane('tooltipPane');
+        if(tp) tp.style.zIndex = 110000;
+        var pp = map.getPane('popupPane');
+        if(pp) pp.style.zIndex = 110000;
+
+        // paths já desenhados
+        if(measureLayer && measureLayer.eachLayer){
+            measureLayer.eachLayer(function(lyr){
+                if(lyr && lyr.bringToFront) lyr.bringToFront();
+            });
+        }
+    }catch(e){}
+}
+
+// deixa os cliques passarem para o mapa (a trena não precisa capturar eventos)
+map.getPane('pane_EcoMapMeasure').style.pointerEvents = 'none';
+
+var measureLayer = L.layerGroup().addTo(map);
+        ecomapBringMeasureToFront();
+        var measureTooltip = L.tooltip({
+            permanent:false,
+            direction:'top',
+            offset:[0,-12],
+            className:'ecomap-measure-tooltip',
+            opacity:1
+        });
+
+        function computeTotalDistance(points){
+            var total = 0;
+            for(var i=1;i<points.length;i++){
+                total += map.distance(points[i-1], points[i]);
+            }
+            return total;
+        }
+
+        function clearMeasure(){
+            measurePoints = [];
+            measureLayer.clearLayers();
+            if(measureLine){ map.removeLayer(measureLine); measureLine = null; }
+            if(tempLine){ map.removeLayer(tempLine); tempLine = null; }
+            if(measurePolygon){ map.removeLayer(measurePolygon); measurePolygon = null; }
+            map.closeTooltip(measureTooltip);
+            hideHint();
+        }
+
+        function setMeasure(active){
+            // sempre manter a trena por cima
+            ecomapBringMeasureToFront();
+            measureActive = active;
+
+            // visual state
+            if(measureBtn){
+                if(active) measureBtn.classList.add('is-active');
+                else measureBtn.classList.remove('is-active');
+            }
+
+            if(active){
+                map.getContainer().style.cursor = 'crosshair';
+                map.doubleClickZoom.disable();
+                showHint('<b>EcoMap – Medição</b><br>• Clique para marcar pontos<br>• Duplo-clique para finalizar<br>• Botão 🗑 para limpar<br><span style="opacity:.9">Dica: ESC cancela</span>');
+            }else{
+                map.getContainer().style.cursor = '';
+                map.doubleClickZoom.enable();
+                if(tempLine){ map.removeLayer(tempLine); tempLine = null; }
+                map.closeTooltip(measureTooltip);
+            }
+        }
+
+        // Control: Trena EcoMap (colapsável: Trena + 🗑)
+        var measureBtn = null;
+        var measureGroup = null;
+
+        function setMeasureGroupOpen(open){
+            if(!measureGroup) return;
+            if(open) measureGroup.classList.add('is-open');
+            else measureGroup.classList.remove('is-open');
+        }
+
+        var MeasureControl = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: function(){
+                var container = L.DomUtil.create('div', 'leaflet-bar ecomap-controls ecomap-group');
+                container.classList.add('ecomap-measure');
+                measureGroup = container;
+
+                // botão principal (Trena)
+                var aMain = L.DomUtil.create('a', '', container);
+                aMain.href = '#';
+                aMain.title = 'Trena (medir distância/área)';
+                aMain.innerHTML = '<i class="fas fa-ruler"></i>';
+                measureBtn = aMain;
+
+                // sub-itens (aparecem quando expandido)
+                var sub = L.DomUtil.create('div', 'ecomap-sub', container);
+                var aTrash = L.DomUtil.create('a', '', sub);
+                aTrash.href = '#';
+                aTrash.title = 'Limpar medições';
+                aTrash.innerHTML = '<i class="fas fa-trash-alt"></i>';
+
+                // inicia COLAPSADO
+                setMeasureGroupOpen(false);
+
+                L.DomEvent.disableClickPropagation(container);
+
+                L.DomEvent.on(aMain, 'click', function(e){
+                    L.DomEvent.preventDefault(e);
+                    // Ao ativar a trena, expande; ao desativar, colapsa
+                    var next = !measureActive;
+                    setMeasure(next);
+                    setMeasureGroupOpen(next);
+                });
+
+                L.DomEvent.on(aTrash, 'click', function(e){
+                    L.DomEvent.preventDefault(e);
+                    clearMeasure();
+                    if(measureActive){
+                        showHint('<b>EcoMap – Medição</b><br>• Clique para marcar pontos<br>• Duplo-clique para finalizar<br>• Botão 🗑 para limpar<br><span style="opacity:.9">Dica: ESC cancela</span>');
+                    }
+                });
+
+                return container;
+            }
+        });
+
+        map.addControl(new MeasureControl());
+
+        // Interações do mapa (trena)
+        function onMapClick(e){
+            if(!measureActive) return;
+
+            var p = e.latlng;
+            measurePoints.push(p);
+
+            // marker do ponto
+            L.circleMarker(p, {
+                pane: 'pane_EcoMapMeasure',
+                renderer: ecomapMeasureRenderer,
+                radius: 5,
+                weight: 2,
+                color: '#111',
+                fillColor: '#fff',
+                fillOpacity: 1
+            }).addTo(measureLayer);
+
+            // Polígono (para área)
+            if(measurePolygon){
+                measurePolygon.addLatLng(p);
+                measurePolygon.setStyle({ color:'#000', weight:3, opacity:1 });
+            }else{
+                measurePolygon = L.polygon([p], { pane: 'pane_EcoMapMeasure', renderer: ecomapMeasureRenderer, color:'#000', weight:3, opacity:1, fillColor:'#111', fillOpacity:0.12 }).addTo(measureLayer);
+            }
+
+            // Linha (para perímetro)
+            if(measureLine){
+                measureLine.addLatLng(p);
+            }else{
+                measureLine = L.polyline([p], { pane: 'pane_EcoMapMeasure', renderer: ecomapMeasureRenderer, color:'#111', weight:3, opacity:0.9 }).addTo(measureLayer);
+            }
+
+            var total = computeTotalDistance(measurePoints);
+            var perimetro = total;
+            var areaTxt = '';
+            if(measurePoints.length >= 3){
+                var area = 0;
+                try{ area = geodesicArea(measurePoints); }catch(err){ area = 0; }
+                areaTxt = '<br><span style="font-weight:700">Área: ' + formatArea(area) + '</span>';
+            }
+            measureTooltip.setLatLng(p).setContent('Distância Total: ' + formatDistance(perimetro) + areaTxt);
+            map.openTooltip(measureTooltip);
+
+            if(tempLine){ map.removeLayer(tempLine); tempLine = null; }
+        }
+
+        function onMapMove(e){
+            if(!measureActive) return;
+            if(measurePoints.length === 0) return;
+
+            var last = measurePoints[measurePoints.length-1];
+            var cur = e.latlng;
+
+            if(!tempLine){
+                tempLine = L.polyline([last, cur], { pane: 'pane_EcoMapMeasure', renderer: ecomapMeasureRenderer, color:'#111', weight:2, opacity:0.45, dashArray:'6,6' }).addTo(measureLayer);
+            }else{
+                tempLine.setLatLngs([last, cur]);
+            }
+
+            var total = computeTotalDistance(measurePoints);
+            var segment = map.distance(last, cur);
+            var perimetro = total + segment;
+
+            var areaTxt = '';
+            if(measurePoints.length >= 2){
+                var area = 0;
+                try{
+                    var pts = measurePoints.concat([cur]);
+                    if(pts.length >= 3){
+                        area = geodesicArea(pts);
+                        areaTxt = '<br><span style="font-weight:700">Área: ' + formatArea(area) + '</span>';
+                    }
+                }catch(err){ area = 0; }
+            }
+
+            measureTooltip
+              .setLatLng(cur)
+              .setContent(
+                'Distância Total: ' + formatDistance(perimetro) +
+                '<br><span style="font-weight:600;opacity:.9">Trecho: ' + formatDistance(segment) + '</span>' +
+                areaTxt
+              );
+            map.openTooltip(measureTooltip);
+        }
+
+        function onMapDblClick(e){
+            if(!measureActive) return;
+            setMeasure(false);
+
+            if(measurePoints.length >= 2){
+                var perimetro = computeTotalDistance(measurePoints);
+                var msg = '<b>Medição finalizada</b><br>Distância Total: ' + formatDistance(perimetro);
+                if(measurePoints.length >= 3){
+                    var area = 0;
+                    try{ area = geodesicArea(measurePoints); }catch(err){ area = 0; }
+                    msg += '<br>Área: ' + formatArea(area);
+                }
+                msg += '<br>Use 🗑 para limpar ou ative a régua para medir novamente.';
+                showHint(msg);
+            }else{
+                hideHint();
+            }
+        }
+
+        function onKeyDown(e){
+            if(!measureActive) return;
+            if(e.key === 'Escape'){
+                clearMeasure();
+                setMeasure(false);
+            }
+        }
+
+        // ===== Eventos da Trena EcoMap (robustos, funcionam mesmo com camadas vetoriais ativas) =====
+// Observação: cliques em vetores (paths) muitas vezes NÃO disparam map.click. Por isso, usamos listeners no DOM do container
+// em modo capture e convertemos para latlng via map.mouseEventToLatLng().
+
+function isFromControl(ev){
+    try{
+        return !!(ev.target && ev.target.closest && ev.target.closest('.leaflet-control, .leaflet-control-container'));
+    }catch(e){ return false; }
+}
+
+function onDomClick(ev){
+    if(!measureActive) return;
+    if(isFromControl(ev)) return;
+
+    // impede popups/handlers das layers quando estiver medindo
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    var latlng = map.mouseEventToLatLng(ev);
+    onMapClick({ latlng: latlng });
+}
+
+function onDomMove(ev){
+    if(!measureActive) return;
+    if(isFromControl(ev)) return;
+
+    var latlng = map.mouseEventToLatLng(ev);
+    onMapMove({ latlng: latlng });
+}
+
+function onDomDblClick(ev){
+    if(!measureActive) return;
+    if(isFromControl(ev)) return;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    var latlng = map.mouseEventToLatLng(ev);
+    onMapDblClick({ latlng: latlng });
+}
+
+var mapContainer = map.getContainer();
+mapContainer.addEventListener('click', onDomClick, true);      // capture=true
+mapContainer.addEventListener('mousemove', onDomMove, true);   // capture=true
+mapContainer.addEventListener('dblclick', onDomDblClick, true);// capture=true
+
+document.addEventListener('keydown', onKeyDown);
+
+// Mantém a trena acima das camadas ligadas durante a navegação.
+map.on('layeradd', ecomapBringMeasureToFront);
+
+var notesMode = null;
+if (L.Draw && L.EditToolbar) {
+/* ===== Anotações EcoMap (desenhar + exportar GeoJSON) =====
+   - Sem servidor: o cliente desenha e exporta um .geojson para enviar à EcoMap
+   - Observações ficam dentro das propriedades (note, created_at, updated_at)
+*/
+map.createPane('pane_EcoMapNotes');
+map.getPane('pane_EcoMapNotes').style.zIndex = 99990;
+map.getPane('pane_EcoMapNotes').style.pointerEvents = 'auto';
+
+var notesLayer = new L.FeatureGroup([], { pane: 'pane_EcoMapNotes' });
+map.addLayer(notesLayer);
+
+// ===== EcoMap - Controle de interatividade (para desenhar em cima de feições existentes) =====
+var notesDrawActive = false;
+var notesEditActive = false;
+function setNotesPanePointerEvents(enabled){
+  try{
+    var pane = map.getPane('pane_EcoMapNotes');
+    if(pane) pane.style.pointerEvents = enabled ? 'auto' : 'none';
+  }catch(e){}
+}
+
+function setNotesInteractivity(enabled){
+  try{
+    if(!notesLayer || !notesLayer.eachLayer) return;
+    notesLayer.eachLayer(function(l){
+      try {
+        if (l instanceof L.Path){
+          l.options.interactive = enabled;
+          if (l._path) l._path.style.pointerEvents = enabled ? 'auto' : 'none';
+        } else if (l instanceof L.Marker){
+          if (l._icon) l._icon.style.pointerEvents = enabled ? 'auto' : 'none';
+          if (l._shadow) l._shadow.style.pointerEvents = enabled ? 'auto' : 'none';
+        }
+      } catch(e) {}
+    });
+  }catch(e){}
+}
+
+// ===== EcoMap - Tabela flutuante =====
+(function(){
+  var panel = document.createElement('div');
+  panel.id = 'ecomapNotesTablePanel';
+  panel.innerHTML = '<h4>Tabela de Anotações</h4><div class="small">As feições desenhadas aparecem aqui.</div><div id="ecomapNotesTableWrap" style="margin-top:8px;"></div>';
+  document.body.appendChild(panel);
+})();
+
+function fmtMeters(m){
+  if (!isFinite(m)) return '-';
+  return (m >= 1000) ? (m/1000).toFixed(2).replace('.',',') + ' km' : m.toFixed(2).replace('.',',') + ' m';
+}
+function fmtArea(a){
+  if (!isFinite(a)) return '-';
+  return (a/10000).toFixed(4).replace('.',',') + ' ha';
+}
+function lineLength(latlngs){
+  var sum = 0;
+  for (var i=1;i<latlngs.length;i++){ sum += map.distance(latlngs[i-1], latlngs[i]); }
+  return sum;
+}
+function polygonPerimeter(latlngs){
+  if (latlngs.length < 2) return 0;
+  var sum = lineLength(latlngs);
+  sum += map.distance(latlngs[latlngs.length-1], latlngs[0]);
+  return sum;
+}
+function polygonArea(latlngs){
+  try {
+    if (L.GeometryUtil && typeof L.GeometryUtil.geodesicArea === 'function'){
+      return Math.abs(L.GeometryUtil.geodesicArea(latlngs));
+    }
+  } catch(e) {}
+  return NaN;
+}
+
+// ===== EcoMap: controle de exibição da tabela (mobile) =====
+var notesTableVisible = !window.matchMedia('(max-width: 768px)').matches; // desktop: aberta; mobile: recolhida por padrão
+function toggleNotesTableVisible(){
+  notesTableVisible = !notesTableVisible;
+  try{ refreshNotesTable(); }catch(e){}
+}
+
+
+function toDMS(deg, isLat){
+  // Converte graus decimais para DMS, sem casas decimais nos segundos
+  var hemi = isLat ? (deg < 0 ? 'S' : 'N') : (deg < 0 ? 'W' : 'E');
+  var abs = Math.abs(deg);
+  var d = Math.floor(abs);
+  var minFloat = (abs - d) * 60;
+  var m = Math.floor(minFloat);
+  var secFloat = (minFloat - m) * 60;
+  var s = Math.round(secFloat);
+
+  // normaliza arredondamentos (ex.: 59.9 -> 60)
+  if(s === 60){ s = 0; m += 1; }
+  if(m === 60){ m = 0; d += 1; }
+
+  return d + '°' + String(m).padStart(2,'0') + "'" + String(s).padStart(2,'0') + '"' + hemi;
+}
+
+
+function refreshNotesTable(){
+  var panel = document.getElementById('ecomapNotesTablePanel');
+  var wrap = document.getElementById('ecomapNotesTableWrap');
+  if (!panel || !wrap) return;
+
+  
+  var tableBtn = window._ecomapNotesTableBtn || null;
+  if (tableBtn){ tableBtn.style.display = 'none'; }
+// se as ferramentas de anotação estiverem recolhidas, a tabela deve ficar oculta
+  if (!notesToolsOpen){
+    panel.style.display = 'none';
+    return;
+  }
+
+  var rows = [];
+  notesLayer.eachLayer(function(l){
+    var type = (l instanceof L.Marker) ? 'Ponto' : (l instanceof L.Polygon && !(l instanceof L.Rectangle) ? 'Polígono' : (l instanceof L.Polyline ? 'Linha' : 'Feição'));
+    var name = (l.feature && l.feature.properties && (l.feature.properties.note || l.feature.properties.name)) ? (l.feature.properties.note || l.feature.properties.name) : '(sem nome)';
+    var metric = '-';
+    if (l instanceof L.Marker){
+      var pt = l.getLatLng ? l.getLatLng() : null;
+      if(pt){
+        metric = 'Lat: ' + toDMS(pt.lat, true) + ' | Lon: ' + toDMS(pt.lng, false);
+      }
+    }
+    if (l instanceof L.Polyline && !(l instanceof L.Polygon)){
+      var ll = l.getLatLngs();
+      metric = fmtMeters(lineLength(ll));
+    } else if (l instanceof L.Polygon){
+      var ring = l.getLatLngs();
+      ring = Array.isArray(ring) && Array.isArray(ring[0]) ? ring[0] : ring;
+      var a = polygonArea(ring);
+      var p = polygonPerimeter(ring);
+      metric = fmtArea(a) + ' | ' + fmtMeters(p);
+    }
+    rows.push({name:name, type:type, metric:metric});
+  });
+
+  if (rows.length === 0){
+    panel.style.display = 'none';
+    wrap.innerHTML = '';
+    if (tableBtn){ tableBtn.style.display = 'none'; }
+    return;
+  }
+
+  // há feições: habilita botão da tabela (no mobile)
+  if (tableBtn){ tableBtn.style.display = ''; }
+
+  // respeitar o estado recolhida/aberta (desktop + mobile)
+  if (!notesTableVisible){
+    panel.style.display = 'none';
+    return;
+  }
+
+  var html = '<table><thead><tr><th>Nome</th><th>Tipo</th><th>Medições</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    html += '<tr><td>'+String(r.name).replace(/</g,'&lt;')+'</td><td>'+r.type+'</td><td>'+r.metric+'</td></tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  panel.style.display = 'block';
+}
+
+
+// Estilos (Leaflet.draw usa shapeOptions)
+var notesShapeOptions = {
+    pane: 'pane_EcoMapNotes',
+    color: '#111',
+    weight: 3,
+    opacity: 0.5,
+    fillColor: '#111',
+    fillOpacity: 0.12
+};
+
+// Opções usadas DURANTE o desenho: tornam o traço temporário não-interativo,
+// evitando que ele “capture” o clique (problema do vértice inside em zoom baixo).
+var notesShapeOptionsDraw = (function(){
+  var o = {};
+  for (var k in notesShapeOptions) o[k] = notesShapeOptions[k];
+  o.interactive = false;
+  return o;
+})();
+
+function setNotesLayerInteractive(layer, interactive){
+  try{
+    layer.options = layer.options || {};
+    layer.options.interactive = !!interactive;
+    if (layer._path){
+      if (interactive){
+        L.DomUtil.addClass(layer._path, 'leaflet-interactive');
+        try{ layer._path.style.pointerEvents = 'auto'; }catch(e){}
+      } else {
+        L.DomUtil.removeClass(layer._path, 'leaflet-interactive');
+        try{ layer._path.style.pointerEvents = 'none'; }catch(e){}
+      }
+    }
+  }catch(e){}
+}
+
+
+function nowISO(){
+    try{ return new Date().toISOString(); }catch(e){ return ''; }
+}
+
+  function bindNoteInteractions(layer){
+    // Tooltip (nome/observação)
+    try {
+      var p = layer && layer.feature && layer.feature.properties ? layer.feature.properties : null;
+      var note = p && (p.note || p.name) ? (p.note || p.name) : '';
+      if (note && layer.bindTooltip){
+        layer.bindTooltip(String(note), {sticky:true, direction:'top', opacity:0.9});
+      }
+    } catch(e) {}
+
+    layer.on('click', function(e){
+      // durante desenho/edição não capturar cliques
+      if (notesDrawActive || notesEditActive) return;
+      // editar nome/observação
+      var current = (layer.feature && layer.feature.properties && (layer.feature.properties.note || layer.feature.properties.name)) || '';
+      var val = prompt('Nome/Observação da feição:', current);
+      if (val === null) return;
+      layer.feature = layer.feature || {type:'Feature', properties:{}};
+      layer.feature.properties = layer.feature.properties || {};
+      layer.feature.properties.note = val;
+      try { if (layer.setTooltipContent) layer.setTooltipContent(String(val)); } catch(e) {}
+      refreshNotesTable();
+    });
+  }
+
+function ensureFeatureMeta(layer){
+    if(!layer.feature) layer.feature = { type:'Feature', properties:{} };
+    if(!layer.feature.properties) layer.feature.properties = {};
+    if(!layer.feature.properties.created_at) layer.feature.properties.created_at = nowISO();
+    if(!layer.feature.properties.updated_at) layer.feature.properties.updated_at = nowISO();
+}
+
+// Handlers (Leaflet.draw)
+var notesVertexIcon = new L.DivIcon({
+    className: 'notes-vertex-icon',
+    iconSize: [8, 8]
+});
+var drawMarker = new L.Draw.Marker(map, { repeatMode:false });
+var drawPolyline = new L.Draw.Polyline(map, { shapeOptions: notesShapeOptionsDraw, repeatMode:false, icon: notesVertexIcon, touchIcon: notesVertexIcon });
+var drawPolygon = new L.Draw.Polygon(map, { shapeOptions: notesShapeOptionsDraw, repeatMode:false, allowIntersection:false, showArea:true, icon: notesVertexIcon, touchIcon: notesVertexIcon });
+
+// ===== EcoMap: Finalização somente por botão (linha/polígono) - desktop + mobile =====
+var _ecomapFinishBarEl = null;
+var _ecomapPrevDblZoomEnabled = null;
+var _ecomapDblBlocker = function(e){ try{ L.DomEvent.stop(e); }catch(err){} };
+
+function showFinishBar(show){
+  try{
+    if(!_ecomapFinishBarEl) _ecomapFinishBarEl = document.getElementById('ecomapFinishBar');
+    if(!_ecomapFinishBarEl) return;
+    _ecomapFinishBarEl.style.display = show ? 'flex' : 'none';
+    _ecomapFinishBarEl.setAttribute('aria-hidden', show ? 'false' : 'true');
+  }catch(e){}
+}
+
+function _ecomapGetActiveDrawHandler(){
+  try{
+    if(notesMode === 'polyline' && drawPolyline && drawPolyline.enabled && drawPolyline.enabled()) return drawPolyline;
+    if(notesMode === 'polygon' && drawPolygon && drawPolygon.enabled && drawPolygon.enabled()) return drawPolygon;
+  }catch(e){}
+  return null;
+}
+
+(function(){
+  // força Leaflet.draw a não finalizar por duplo-clique
+  try{ if(drawPolyline && drawPolyline.options) drawPolyline.options.finishOnDoubleClick = false; }catch(e){}
+  try{ if(drawPolygon && drawPolygon.options) drawPolygon.options.finishOnDoubleClick = false; }catch(e){}
+
+  function gateFinish(handler){
+    if(!handler || handler.__ecomapFinishGated) return;
+    handler.__ecomapFinishGated = true;
+    var origFinish = handler._finishShape;
+    if(typeof origFinish !== 'function') return;
+
+    handler._finishShape = function(){
+      if(!this._ecomapAllowFinish){
+        return; // bloqueia qualquer finalização por gesto/clique
+      }
+      return origFinish.apply(this, arguments);
+    };
+  }
+
+  gateFinish(drawPolyline);
+  gateFinish(drawPolygon);
+
+  function bindButtons(){
+    var btnFinish = document.getElementById('ecomapBtnFinish');
+    var btnCancel = document.getElementById('ecomapBtnCancel');
+    if(!btnFinish || !btnCancel) return;
+
+    btnFinish.addEventListener('click', function(){
+      var h = _ecomapGetActiveDrawHandler();
+      if(!h) return;
+      try{
+        h._ecomapAllowFinish = true;
+        if(typeof h._finishShape === 'function') h._finishShape();
+      }catch(e){}
+      try{ h._ecomapAllowFinish = false; }catch(e){}
+    });
+
+    btnCancel.addEventListener('click', function(){
+      var h = _ecomapGetActiveDrawHandler();
+      try{ if(h) h.disable(); }catch(e){}
+      try{ stopAllNoteModes && stopAllNoteModes(); }catch(e){}
+      showFinishBar(false);
+    });
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindButtons);
+  else bindButtons();
+})();
+
+var editToolbar = new L.EditToolbar.Edit(map, { featureGroup: notesLayer });
+
+function stopAllNoteModes(){
+    try{ drawMarker.disable(); }catch(e){}
+    try{ drawPolyline.disable(); }catch(e){}
+    try{ drawPolygon.disable(); }catch(e){}
+    try{ editToolbar.disable(); }catch(e){}
+
+    notesMode = null;
+
+    // estado visual
+    if(notesBtns && notesBtns.length){
+        notesBtns.forEach(function(b){ b.classList.remove('is-active'); });
+    }
+
+    // garante que cliques voltem a funcionar ao sair de qualquer modo
+    try{ setNotesInteractivity(true); }catch(e){}
+    try{ setNotesPanePointerEvents(true); }catch(e){}
+}
+
+function setNotesMode(mode){
+    // se estiver medindo, desliga a trena para não conflitar com cliques
+    try{ if(typeof setMeasure === 'function' && measureActive) setMeasure(false); }catch(e){}
+
+    stopAllNoteModes();
+    notesMode = mode;
+
+    if(mode === 'marker'){ try{ drawMarker.enable(); }catch(e){} }
+    else if(mode === 'polyline'){ try{ drawPolyline.enable(); }catch(e){} }
+    else if(mode === 'polygon'){ try{ drawPolygon.enable(); }catch(e){} }
+    else if(mode === 'edit'){ try{ editToolbar.enable(); }catch(e){} }
+
+    // dica
+    try{
+        if(mode === 'marker') showHint('<b>Anotações</b><br>• Clique para inserir um ponto<br>• Clique no ponto para escrever/editar observação<br>• Exportar para enviar à EcoMap');
+        else if(mode === 'polyline') showHint('<b>Anotações</b><br>• Clique para criar a linha<br>• Duplo-clique para finalizar<br>• Clique na feição para escrever/editar observação');
+        else if(mode === 'polygon') showHint('<b>Anotações</b><br>• Clique para criar o polígono<br>• Duplo-clique para finalizar<br>• Clique na feição para escrever/editar observação');
+        else if(mode === 'edit') showHint('<b>Anotações</b><br>• Arraste vértices para editar<br>• Clique em “Salvar” na barra do editor quando terminar');
+else hideHint();
+    }catch(e){}
+
+    // estado visual
+    if(notesBtnsByMode && notesBtnsByMode[mode]){
+        notesBtnsByMode[mode].classList.add('is-active');
+    }
+}
+
+// eventos Leaflet.draw
+  map.on('draw:drawstart', function(){
+    notesDrawActive = true;
+    // durante desenho, deixar cliques passarem através das feições existentes
+    setNotesInteractivity(false);
+    setNotesPanePointerEvents(false);
+
+    // EcoMap: durante desenho (linha/polígono), bloquear duplo-clique e mostrar barra Finalizar/Cancelar (desktop+mobile)
+    try{
+      _ecomapPrevDblZoomEnabled = map.doubleClickZoom && map.doubleClickZoom._enabled;
+      if(map.doubleClickZoom) map.doubleClickZoom.disable();
+    }catch(e){}
+    try{ map.on('dblclick', _ecomapDblBlocker); }catch(e){}
+    try{ showFinishBar(notesMode === 'polyline' || notesMode === 'polygon'); }catch(e){}
+  });
+  map.on('draw:drawstop', function(){
+    notesDrawActive = false;
+    setNotesInteractivity(true);
+    setNotesPanePointerEvents(true);
+
+    try{ map.off('dblclick', _ecomapDblBlocker); }catch(e){}
+    try{ if(_ecomapPrevDblZoomEnabled) map.doubleClickZoom.enable(); }catch(e){}
+    try{ showFinishBar(false); }catch(e){}
+  });
+map.on(L.Draw.Event.CREATED, function (e) {
+    try{
+        var layer = e.layer;
+
+        // metadados
+        ensureFeatureMeta(layer);
+
+        // pergunta observação
+        var txt = prompt('Observação:', '');
+        if(txt !== null){
+            layer.feature.properties.note = String(txt || '').trim();
+        }else{
+            layer.feature.properties.note = '';
+        }
+        layer.feature.properties.updated_at = nowISO();
+
+        // estilo extra para marker
+        if(e.layerType === 'marker'){
+            // nada especial; o default marker ok
+        }else{
+            try{ layer.setStyle && layer.setStyle(notesShapeOptions); }catch(err){}
+        }
+
+        setNotesLayerInteractive(layer, true);
+
+        notesLayer.addLayer(layer);
+    refreshNotesTable();
+        bindNoteInteractions(layer);
+    }catch(err){}
+});
+
+map.on('draw:edited', function (e) {
+    try{
+        e.layers.eachLayer(function(layer){
+            ensureFeatureMeta(layer);
+            layer.feature.properties.updated_at = nowISO();
+            bindNoteInteractions(layer);
+        });
+    }catch(err){}
+});
+
+// ===== Exportação GeoJSON =====
+function downloadTextFile(filename, textContent){
+    var blob = new Blob([textContent], {type: 'application/geo+json;charset=utf-8'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 800);
+}
+
+function exportNotesGeoJSON(){
+    try{
+        if(!notesLayer || notesLayer.getLayers().length === 0){
+            alert('Não há anotações para exportar.');
+            return;
+        }
+        var gj = notesLayer.toGeoJSON();
+        // garantia: incluir CRS não é padrão no GeoJSON moderno, então omitimos.
+        var txt = JSON.stringify(gj, null, 2);
+        var fname = 'anotacoes_santa_lucia_' + (new Date().toISOString().slice(0,10)) + '.geojson';
+        downloadTextFile(fname, txt);
+    }catch(e){
+        alert('Falha ao exportar anotações.');
+    }
+}
+
+function clearAllNotes(){
+    if(!notesLayer) return;
+    var ok = confirm('Apagar TODAS as anotações desta sessão?');
+    if(!ok) return;
+    notesLayer.clearLayers();
+    hideHint();
+}
+
+// ===== Controle UI (barra no topo esquerdo) =====
+var notesBtns = [];
+var notesBtnsByMode = {};
+var notesGroup = null;
+
+var notesToolsOpen = false; // controla exibição da tabela flutuante
+function setNotesGroupOpen(open){
+    if(!notesGroup) return;
+    notesToolsOpen = !!open;
+    if(open) notesGroup.classList.add('is-open');
+    else notesGroup.classList.remove('is-open');
+
+    // ao recolher, oculta a tabela flutuante imediatamente
+    var panel = document.getElementById('ecomapNotesTablePanel');
+    if(panel && !notesToolsOpen){
+        panel.style.display = 'none';
+    }
+}
+
+var NotesControl = L.Control.extend({
+    options: { position: 'topleft' },
+    onAdd: function(){
+        var container = L.DomUtil.create('div', 'leaflet-bar ecomap-notes-controls ecomap-group');
+        container.classList.add('ecomap-notes');
+        notesGroup = container;
+
+        // botão principal (imagem da pasta images)
+        var aMain = L.DomUtil.create('a', 'ecomap-notes-main', container);
+        aMain.href = '#';
+        aMain.title = 'Anotações (expandir / recolher)';
+        aMain.innerHTML = '<img src="images/icon-anotacoes.png" alt="Anotações" onerror="this.onerror=null;this.src=\'images/icon-anotacoes.svg\';" />';
+
+        // sub-itens (aparecem quando expandido)
+        var sub = L.DomUtil.create('div', 'ecomap-sub', container);
+
+        function mkBtn(title, iconHtml, onClick){
+            var a = L.DomUtil.create('a', '', sub);
+            a.href = '#';
+            a.title = title;
+            a.innerHTML = iconHtml;
+            L.DomEvent.on(a, 'click', function(ev){
+                L.DomEvent.preventDefault(ev);
+                onClick();
+            });
+            notesBtns.push(a);
+            return a;
+        }
+
+        var bPoly = mkBtn('Anotações: desenhar polígono', `<span class="ecomap-ico-poly" aria-hidden="true">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+  <path d="M7 3 L3 9 L6 21 L18 20 L21 8 L14 3 Z"></path>
+  <circle cx="7" cy="3" r="1.2" fill="currentColor"></circle>
+  <circle cx="3" cy="9" r="1.2" fill="currentColor"></circle>
+  <circle cx="6" cy="21" r="1.2" fill="currentColor"></circle>
+  <circle cx="18" cy="20" r="1.2" fill="currentColor"></circle>
+  <circle cx="21" cy="8" r="1.2" fill="currentColor"></circle>
+  <circle cx="14" cy="3" r="1.2" fill="currentColor"></circle>
+</svg>
+</span>`, function(){
+            setNotesMode(notesMode === 'polygon' ? null : 'polygon');
+        });
+        notesBtnsByMode['polygon'] = bPoly;
+
+        var bLine = mkBtn('Anotações: desenhar linha', '<i class="fas fa-project-diagram"></i>', function(){
+            setNotesMode(notesMode === 'polyline' ? null : 'polyline');
+        });
+        notesBtnsByMode['polyline'] = bLine;
+
+        var bPt = mkBtn('Anotações: inserir ponto', '<i class="fas fa-map-marker-alt"></i>', function(){
+            setNotesMode(notesMode === 'marker' ? null : 'marker');
+        });
+        notesBtnsByMode['marker'] = bPt;
+
+        var bEdit = mkBtn('Anotações: editar geometria', '<i class="fas fa-edit"></i>', function(){
+            setNotesMode(notesMode === 'edit' ? null : 'edit');
+        });
+        notesBtnsByMode['edit'] = bEdit;
+        // NÃO mexer na funcionalidade do botão de download (export)
+        mkBtn('Anotações: exportar GeoJSON', '<i class="fas fa-download"></i>', function(){
+            stopAllNoteModes();
+            exportNotesGeoJSON();
+        });
+
+        mkBtn('Anotações: limpar tudo', '<i class="fas fa-trash-alt"></i>', function(){
+            stopAllNoteModes();
+            clearAllNotes();
+        });
+
+
+        // Botão da Tabela (somente mobile; aparece quando houver feições)
+        var bTable = mkBtn('Tabela de anotações (mostrar/ocultar)', '<i class="fas fa-table"></i>', function(){
+            toggleNotesTableVisible();
+        });
+        bTable.classList.add('ecomap-notes-tablebtn');
+        window._ecomapNotesTableBtn = bTable;
+
+        // inicia COLAPSADO
+        setNotesGroupOpen(false);
+
+        // clique no principal: expandir/recolher
+        L.DomEvent.on(aMain, 'click', function(ev){
+            L.DomEvent.preventDefault(ev);
+            var open = !container.classList.contains('is-open');
+            if(!open){
+                // ao recolher, para qualquer modo ativo (evita ficar "ligado" invisível)
+                try{ stopAllNoteModes(); }catch(e){}
+            }
+            setNotesGroupOpen(open);
+            // ao expandir, reexibe a tabela se houver feições
+            if(open){ try{ refreshNotesTable(); }catch(e){} }
+        });
+
+        L.DomEvent.disableClickPropagation(container);
+        return container;
+    }
+});
+
+map.addControl(new NotesControl());
+
+// Se a trena for ativada, desliga modos de anotação (evita conflito de clique)
+try{
+    var _origSetMeasure = setMeasure;
+    setMeasure = function(active){
+        if(active){ try{ stopAllNoteModes(); }catch(e){} }
+        return _origSetMeasure(active);
+    };
+}catch(e){}
+
+
+
+        
+
+}
+
+        var bounds_group = new L.featureGroup([]);
+        function setBounds() {
+        }
+        map.createPane('pane_GoogleSatellite_0');
+        map.getPane('pane_GoogleSatellite_0').style.zIndex = 400;
+        var layer_GoogleSatellite_0 = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            pane: 'pane_GoogleSatellite_0',
+            opacity: 1.0,
+            attribution: '<a href="https://www.google.at/permissions/geoguidelines/attr-guide.html">Map data ©2015 Google</a>',
+            minZoom: 1,
+            maxZoom: 28,
+            minNativeZoom: 0,
+            maxNativeZoom: 20
+        });
+        layer_GoogleSatellite_0;
+        map.addLayer(layer_GoogleSatellite_0);
+        map.createPane('pane_Orto_Seg_202600_1');
+        map.getPane('pane_Orto_Seg_202600_1').style.zIndex = 401;
+        var img_Orto_Seg_202600_1 = 'data/Orto_Seg_202600_1.png';
+        var img_bounds_Orto_Seg_202600_1 = [[-27.567324059070064,-51.06364773232068],[-27.563618888197723,-51.06030266665027]];
+        var layer_Orto_Seg_202600_1 = new L.imageOverlay(img_Orto_Seg_202600_1,
+                                              img_bounds_Orto_Seg_202600_1,
+                                              {pane: 'pane_Orto_Seg_202600_1'});
+        bounds_group.addLayer(layer_Orto_Seg_202600_1);
+        map.addLayer(layer_Orto_Seg_202600_1);
+        map.createPane('pane_Orto_Seg_202601_2');
+        map.getPane('pane_Orto_Seg_202601_2').style.zIndex = 402;
+        var img_Orto_Seg_202601_2 = 'data/Orto_Seg_202601_2.png';
+        var img_bounds_Orto_Seg_202601_2 = [[-27.571027736829848,-51.06364986911547],[-27.56732256769908,-51.06030469082539]];
+        var layer_Orto_Seg_202601_2 = new L.imageOverlay(img_Orto_Seg_202601_2,
+                                              img_bounds_Orto_Seg_202601_2,
+                                              {pane: 'pane_Orto_Seg_202601_2'});
+        bounds_group.addLayer(layer_Orto_Seg_202601_2);
+        map.addLayer(layer_Orto_Seg_202601_2);
+        map.createPane('pane_Orto_Seg_202602_3');
+        map.getPane('pane_Orto_Seg_202602_3').style.zIndex = 403;
+        var img_Orto_Seg_202602_3 = 'data/Orto_Seg_202602_3.png';
+        var img_bounds_Orto_Seg_202602_3 = [[-27.574719225018644,-51.0636519992848],[-27.57102624522493,-51.060306715387064]];
+        var layer_Orto_Seg_202602_3 = new L.imageOverlay(img_Orto_Seg_202602_3,
+                                              img_bounds_Orto_Seg_202602_3,
+                                              {pane: 'pane_Orto_Seg_202602_3'});
+        bounds_group.addLayer(layer_Orto_Seg_202602_3);
+        map.addLayer(layer_Orto_Seg_202602_3);
+        map.createPane('pane_Orto_Seg_202610_4');
+        map.getPane('pane_Orto_Seg_202610_4').style.zIndex = 404;
+        var img_Orto_Seg_202610_4 = 'data/Orto_Seg_202610_4.png';
+        var img_bounds_Orto_Seg_202610_4 = [[-27.567325433206825,-51.06030469082539],[-27.56362037933478,-51.05704938841175]];
+        var layer_Orto_Seg_202610_4 = new L.imageOverlay(img_Orto_Seg_202610_4,
+                                              img_bounds_Orto_Seg_202610_4,
+                                              {pane: 'pane_Orto_Seg_202610_4'});
+        bounds_group.addLayer(layer_Orto_Seg_202610_4);
+        map.addLayer(layer_Orto_Seg_202610_4);
+        map.createPane('pane_Orto_Seg_202611_5');
+        map.getPane('pane_Orto_Seg_202611_5').style.zIndex = 405;
+        var img_Orto_Seg_202611_5 = 'data/Orto_Seg_202611_5.png';
+        var img_bounds_Orto_Seg_202611_5 = [[-27.571029111182153,-51.060306715387064],[-27.567324059070064,-51.05705130338446]];
+        var layer_Orto_Seg_202611_5 = new L.imageOverlay(img_Orto_Seg_202611_5,
+                                              img_bounds_Orto_Seg_202611_5,
+                                              {pane: 'pane_Orto_Seg_202611_5'});
+        bounds_group.addLayer(layer_Orto_Seg_202611_5);
+        map.addLayer(layer_Orto_Seg_202611_5);
+        map.createPane('pane_Orto_Seg_202612_6');
+        map.getPane('pane_Orto_Seg_202612_6').style.zIndex = 406;
+        var img_Orto_Seg_202612_6 = 'data/Orto_Seg_202612_6.png';
+        var img_bounds_Orto_Seg_202612_6 = [[-27.574720599585806,-51.060308733671285],[-27.571027736829848,-51.057053218722885]];
+        var layer_Orto_Seg_202612_6 = new L.imageOverlay(img_Orto_Seg_202612_6,
+                                              img_bounds_Orto_Seg_202612_6,
+                                              {pane: 'pane_Orto_Seg_202612_6'});
+        bounds_group.addLayer(layer_Orto_Seg_202612_6);
+        map.addLayer(layer_Orto_Seg_202612_6);
+        function pop_APPFaixadeServido_7(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['area_ha'] !== null ? autolinker.link(String(feature.properties['area_ha']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_APPFaixadeServido_7_0() {
+            return {
+                pane: 'pane_APPFaixadeServido_7',
+                className: 'arvoredo-overlap',
+                stroke: false,
+                fill: true,
+                fillOpacity: 1,
+                interactive: false,
+            }
+        }
+        function style_APPFaixadeServido_7_1() {
+            return {
+                pane: 'pane_APPFaixadeServido_7',
+                opacity: 1,
+                color: 'rgba(228,26,28,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 1.36,
+                fillOpacity: 0,
+                interactive: false,
+            }
+        }
+        map.createPane('pane_APPFaixadeServido_7');
+        map.getPane('pane_APPFaixadeServido_7').style.zIndex = 407;
+        map.getPane('pane_APPFaixadeServido_7').style['mix-blend-mode'] = 'normal';
+        map.getPane('pane_APPFaixadeServido_7').style.opacity = '0.5';
+        var layer_APPFaixadeServido_7 = new L.geoJson.multiStyle(json_APPFaixadeServido_7, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_APPFaixadeServido_7',
+            layerName: 'layer_APPFaixadeServido_7',
+            pane: 'pane_APPFaixadeServido_7',
+            onEachFeature: pop_APPFaixadeServido_7,
+            styles: [style_APPFaixadeServido_7_0,style_APPFaixadeServido_7_1,]
+        });
+        bounds_group.addLayer(layer_APPFaixadeServido_7);
+        function pop_EstradaFaixadeServido_8(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['area_ha'] !== null ? autolinker.link(String(feature.properties['area_ha']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_EstradaFaixadeServido_8_0() {
+            return {
+                pane: 'pane_EstradaFaixadeServido_8',
+                className: 'arvoredo-overlap',
+                stroke: false,
+                fill: true,
+                fillOpacity: 1,
+                interactive: false,
+            }
+        }
+        function style_EstradaFaixadeServido_8_1() {
+            return {
+                pane: 'pane_EstradaFaixadeServido_8',
+                opacity: 1,
+                color: 'rgba(228,26,28,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 1.36,
+                fillOpacity: 0,
+                interactive: false,
+            }
+        }
+        map.createPane('pane_EstradaFaixadeServido_8');
+        map.getPane('pane_EstradaFaixadeServido_8').style.zIndex = 408;
+        map.getPane('pane_EstradaFaixadeServido_8').style['mix-blend-mode'] = 'normal';
+        map.getPane('pane_EstradaFaixadeServido_8').style.opacity = '0.5';
+        var layer_EstradaFaixadeServido_8 = new L.geoJson.multiStyle(json_EstradaFaixadeServido_8, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_EstradaFaixadeServido_8',
+            layerName: 'layer_EstradaFaixadeServido_8',
+            pane: 'pane_EstradaFaixadeServido_8',
+            onEachFeature: pop_EstradaFaixadeServido_8,
+            styles: [style_EstradaFaixadeServido_8_0,style_EstradaFaixadeServido_8_1,]
+        });
+        bounds_group.addLayer(layer_EstradaFaixadeServido_8);
+        function pop_APP_9(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['area_ha'] !== null ? autolinker.link(String(feature.properties['area_ha']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_APP_9_0() {
+            return {
+                pane: 'pane_APP_9',
+                opacity: 1,
+                color: 'rgba(38,89,128,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(55,126,184,1.0)',
+                interactive: false,
+            }
+        }
+        map.createPane('pane_APP_9');
+        map.getPane('pane_APP_9').style.zIndex = 409;
+        map.getPane('pane_APP_9').style['mix-blend-mode'] = 'normal';
+        map.getPane('pane_APP_9').style.opacity = '0.5';
+        var layer_APP_9 = new L.geoJson(json_APP_9, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_APP_9',
+            layerName: 'layer_APP_9',
+            pane: 'pane_APP_9',
+            onEachFeature: pop_APP_9,
+            style: style_APP_9_0,
+        });
+        bounds_group.addLayer(layer_APP_9);
+        function pop_Aude_10(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['area_ha'] !== null ? autolinker.link(String(feature.properties['area_ha']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Aude_10_0() {
+            return {
+                pane: 'pane_Aude_10',
+                opacity: 1,
+                color: 'rgba(38,89,128,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(12,231,244,1.0)',
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Aude_10');
+        map.getPane('pane_Aude_10').style.zIndex = 410;
+        map.getPane('pane_Aude_10').style['mix-blend-mode'] = 'normal';
+        map.getPane('pane_Aude_10').style.opacity = '0.5';
+        var layer_Aude_10 = new L.geoJson(json_Aude_10, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Aude_10',
+            layerName: 'layer_Aude_10',
+            pane: 'pane_Aude_10',
+            onEachFeature: pop_Aude_10,
+            style: style_Aude_10_0,
+        });
+        bounds_group.addLayer(layer_Aude_10);
+        function pop_Banhado_11(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['area_ha'] !== null ? autolinker.link(String(feature.properties['area_ha']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Banhado_11_0() {
+            return {
+                pane: 'pane_Banhado_11',
+                opacity: 1,
+                color: 'rgba(38,89,128,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(55,126,184,1.0)',
+                interactive: false,
+            }
+        }
+        function style_Banhado_11_1() {
+            return {
+                pane: 'pane_Banhado_11',
+                className: 'arvoredo-banhado',
+                stroke: false,
+                fill: true,
+                fillOpacity: 1,
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Banhado_11');
+        map.getPane('pane_Banhado_11').style.zIndex = 411;
+        map.getPane('pane_Banhado_11').style['mix-blend-mode'] = 'normal';
+        map.getPane('pane_Banhado_11').style.opacity = '0.5';
+        var layer_Banhado_11 = new L.geoJson.multiStyle(json_Banhado_11, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Banhado_11',
+            layerName: 'layer_Banhado_11',
+            pane: 'pane_Banhado_11',
+            onEachFeature: pop_Banhado_11,
+            styles: [style_Banhado_11_0,style_Banhado_11_1,]
+        });
+        bounds_group.addLayer(layer_Banhado_11);
+        function pop_CursoDgua_12(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_CursoDgua_12_0() {
+            return {
+                pane: 'pane_CursoDgua_12',
+                opacity: 1,
+                color: 'rgba(60,25,233,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 3.0,
+                fillOpacity: 0,
+                interactive: false,
+            }
+        }
+        map.createPane('pane_CursoDgua_12');
+        map.getPane('pane_CursoDgua_12').style.zIndex = 412;
+        map.getPane('pane_CursoDgua_12').style['mix-blend-mode'] = 'normal';
+        map.getPane('pane_CursoDgua_12').style.opacity = '0.5';
+        var layer_CursoDgua_12 = new L.geoJson(json_CursoDgua_12, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_CursoDgua_12',
+            layerName: 'layer_CursoDgua_12',
+            pane: 'pane_CursoDgua_12',
+            onEachFeature: pop_CursoDgua_12,
+            style: style_CursoDgua_12_0,
+        });
+        bounds_group.addLayer(layer_CursoDgua_12);
+        function pop_Nascente_13(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Nascente_13_0() {
+            return {
+                pane: 'pane_Nascente_13',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(31,196,244,1.0)',
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Nascente_13');
+        map.getPane('pane_Nascente_13').style.zIndex = 413;
+        map.getPane('pane_Nascente_13').style['mix-blend-mode'] = 'normal';
+        map.getPane('pane_Nascente_13').style.opacity = '0.5';
+        var layer_Nascente_13 = new L.geoJson(json_Nascente_13, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Nascente_13',
+            layerName: 'layer_Nascente_13',
+            pane: 'pane_Nascente_13',
+            onEachFeature: pop_Nascente_13,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Nascente_13_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Nascente_13);
+        function pop_Vegetao_14(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['area_ha'] !== null ? autolinker.link(String(feature.properties['area_ha']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Vegetao_14_0() {
+            return {
+                pane: 'pane_Vegetao_14',
+                opacity: 1,
+                color: 'rgba(119,61,128,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(152,78,163,1.0)',
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Vegetao_14');
+        map.getPane('pane_Vegetao_14').style.zIndex = 414;
+        map.getPane('pane_Vegetao_14').style['mix-blend-mode'] = 'normal';
+        map.getPane('pane_Vegetao_14').style.opacity = '0.5';
+        var layer_Vegetao_14 = new L.geoJson(json_Vegetao_14, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Vegetao_14',
+            layerName: 'layer_Vegetao_14',
+            pane: 'pane_Vegetao_14',
+            onEachFeature: pop_Vegetao_14,
+            style: style_Vegetao_14_0,
+        });
+        bounds_group.addLayer(layer_Vegetao_14);
+        function pop_FaixadeServido_15(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['area_ha'] !== null ? autolinker.link(String(feature.properties['area_ha']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_FaixadeServido_15_0() {
+            return {
+                pane: 'pane_FaixadeServido_15',
+                opacity: 1,
+                color: 'rgba(247,225,55,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(255,255,51,1.0)',
+                interactive: false,
+            }
+        }
+        map.createPane('pane_FaixadeServido_15');
+        map.getPane('pane_FaixadeServido_15').style.zIndex = 415;
+        map.getPane('pane_FaixadeServido_15').style['mix-blend-mode'] = 'normal';
+        map.getPane('pane_FaixadeServido_15').style.opacity = '0.5';
+        var layer_FaixadeServido_15 = new L.geoJson(json_FaixadeServido_15, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_FaixadeServido_15',
+            layerName: 'layer_FaixadeServido_15',
+            pane: 'pane_FaixadeServido_15',
+            onEachFeature: pop_FaixadeServido_15,
+            style: style_FaixadeServido_15_0,
+        });
+        bounds_group.addLayer(layer_FaixadeServido_15);
+        function pop_RedeEltrica_16(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['buffer'] !== null ? autolinker.link(String(feature.properties['buffer']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_RedeEltrica_16_0() {
+            return {
+                pane: 'pane_RedeEltrica_16',
+                opacity: 1,
+                color: 'rgba(222,236,17,1.0)',
+                dashArray: '',
+                lineCap: 'round',
+                lineJoin: 'round',
+                weight: 2.49,
+                fillOpacity: 0,
+                interactive: false,
+            }
+        }
+        map.createPane('pane_RedeEltrica_16');
+        map.getPane('pane_RedeEltrica_16').style.zIndex = 416;
+        map.getPane('pane_RedeEltrica_16').style['mix-blend-mode'] = 'normal';
+        map.getPane('pane_RedeEltrica_16').style.opacity = '0.5';
+        var layer_RedeEltrica_16 = new L.geoJson(json_RedeEltrica_16, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_RedeEltrica_16',
+            layerName: 'layer_RedeEltrica_16',
+            pane: 'pane_RedeEltrica_16',
+            onEachFeature: pop_RedeEltrica_16,
+            style: style_RedeEltrica_16_0,
+        });
+        bounds_group.addLayer(layer_RedeEltrica_16);
+        function pop_Estrada_17(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['area_ha'] !== null ? autolinker.link(String(feature.properties['area_ha']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Estrada_17_0() {
+            return {
+                pane: 'pane_Estrada_17',
+                opacity: 1,
+                color: 'rgba(0,0,0,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(255,255,255,1.0)',
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Estrada_17');
+        map.getPane('pane_Estrada_17').style.zIndex = 417;
+        map.getPane('pane_Estrada_17').style['mix-blend-mode'] = 'normal';
+        map.getPane('pane_Estrada_17').style.opacity = '0.5';
+        var layer_Estrada_17 = new L.geoJson(json_Estrada_17, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Estrada_17',
+            layerName: 'layer_Estrada_17',
+            pane: 'pane_Estrada_17',
+            onEachFeature: pop_Estrada_17,
+            style: style_Estrada_17_0,
+        });
+        bounds_group.addLayer(layer_Estrada_17);
+        function pop_Talhes_18(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['COD_FAZENDA'] !== null ? autolinker.link(String(feature.properties['COD_FAZENDA']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['COD_TALHAO'] !== null ? autolinker.link(String(feature.properties['COD_TALHAO']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['ID_FAZENDA'] !== null ? autolinker.link(String(feature.properties['ID_FAZENDA']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['area_ha'] !== null ? autolinker.link(String(feature.properties['area_ha']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Talhes_18_0() {
+            return {
+                pane: 'pane_Talhes_18',
+                opacity: 1,
+                color: 'rgba(56,128,54,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(77,175,74,1.0)',
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Talhes_18');
+        map.getPane('pane_Talhes_18').style.zIndex = 418;
+        map.getPane('pane_Talhes_18').style['mix-blend-mode'] = 'normal';
+        map.getPane('pane_Talhes_18').style.opacity = '0.5';
+        var layer_Talhes_18 = new L.geoJson(json_Talhes_18, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Talhes_18',
+            layerName: 'layer_Talhes_18',
+            pane: 'pane_Talhes_18',
+            onEachFeature: pop_Talhes_18,
+            style: style_Talhes_18_0,
+        });
+        bounds_group.addLayer(layer_Talhes_18);
+        function pop_Pinus2025_19(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['area_ha'] !== null ? autolinker.link(String(feature.properties['area_ha']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Pinus2025_19_0() {
+            return {
+                pane: 'pane_Pinus2025_19',
+                opacity: 1,
+                color: 'rgba(56,128,54,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(77,175,74,1.0)',
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Pinus2025_19');
+        map.getPane('pane_Pinus2025_19').style.zIndex = 419;
+        map.getPane('pane_Pinus2025_19').style['mix-blend-mode'] = 'normal';
+        map.getPane('pane_Pinus2025_19').style.opacity = '0.5';
+        var layer_Pinus2025_19 = new L.geoJson(json_Pinus2025_19, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Pinus2025_19',
+            layerName: 'layer_Pinus2025_19',
+            pane: 'pane_Pinus2025_19',
+            onEachFeature: pop_Pinus2025_19,
+            style: style_Pinus2025_19_0,
+        });
+        bounds_group.addLayer(layer_Pinus2025_19);
+        function pop_Matrcula9870_20(feature, layer) {
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['Matricula'] !== null ? autolinker.link(String(feature.properties['Matricula']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['area_ha'] !== null ? autolinker.link(String(feature.properties['area_ha']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['MF'] !== null ? autolinker.link(String(feature.properties['MF']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['Faixa_APP'] !== null ? autolinker.link(String(feature.properties['Faixa_APP']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Matrcula9870_20_0() {
+            return {
+                pane: 'pane_Matrcula9870_20',
+                opacity: 1,
+                color: 'rgba(228,26,28,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 4.0,
+                fillOpacity: 0,
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Matrcula9870_20');
+        map.getPane('pane_Matrcula9870_20').style.zIndex = 420;
+        map.getPane('pane_Matrcula9870_20').style['mix-blend-mode'] = 'normal';
+        var layer_Matrcula9870_20 = new L.geoJson(json_Matrcula9870_20, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Matrcula9870_20',
+            layerName: 'layer_Matrcula9870_20',
+            pane: 'pane_Matrcula9870_20',
+            onEachFeature: pop_Matrcula9870_20,
+            style: style_Matrcula9870_20_0,
+        });
+        bounds_group.addLayer(layer_Matrcula9870_20);
+        map.addLayer(layer_Matrcula9870_20);
+        map.createPane('pane_EntradaLabels');
+        map.getPane('pane_EntradaLabels').style.zIndex = 660;
+        map.getPane('pane_EntradaLabels').style.pointerEvents = 'none';
+
+        function labelIcon(content) {
+            return L.divIcon({
+                className: 'entrada-label-icon',
+                html: content,
+                iconSize: [0, 0],
+                iconAnchor: [0, 0]
+            });
+        }
+
+        // Matrículas são pontos de posicionamento, com símbolo de tamanho zero no QML.
+        var layer_matricula_dot_21 = L.geoJSON(json_matricula_dot_21, {
+            filter: function (feature) { return feature.properties.Matricula != null; },
+            pointToLayer: function (feature, latlng) {
+                var label = document.createElement('span');
+                label.className = 'entrada-label entrada-matricula-label';
+                label.textContent = '9.870';
+                return L.marker(latlng, {
+                    pane: 'pane_EntradaLabels',
+                    icon: labelIcon(label),
+                    interactive: false,
+                    keyboard: false
+                });
+            }
+        }).addTo(map);
+
+        function docLink(label, url) {
+            return {
+                label: '<a class="doc-link" href="' + url +
+                    '" target="_blank" rel="noopener">' + label + '</a>',
+                layer: L.layerGroup()
+            };
+        }
+
+        var overlaysTree = [
+        {label: '<b>Matrícula</b>', collapsed: true, selectAllCheckbox: true, children: [
+            {label: '<img src="legend/Matrcula9870_20.png" /> Matrícula 9.870', layer: layer_Matrcula9870_20},]},
+        {label: '<b>Pinus</b>', collapsed: true, selectAllCheckbox: true, children: [
+            {label: '<img src="legend/Pinus2025_19.png" /> Pinus 2025', layer: layer_Pinus2025_19},]},
+        {label: '<b>Uso do Solo</b>', collapsed: true, selectAllCheckbox: true, children: [
+            {label: '<img src="legend/Talhes_18.png" /> Talhões', layer: layer_Talhes_18},
+            {label: '<img src="legend/Estrada_17.png" /> Estrada', layer: layer_Estrada_17},
+            {label: '<img src="legend/RedeEltrica_16.png" /> Rede Elétrica', layer: layer_RedeEltrica_16},
+            {label: '<img src="legend/FaixadeServido_15.png" /> Faixa de Servidão', layer: layer_FaixadeServido_15},
+            {label: '<img src="legend/Vegetao_14.png" /> Vegetação', layer: layer_Vegetao_14},]},
+        {label: '<b>Hidrografia</b>', collapsed: true, selectAllCheckbox: true, children: [
+            {label: '<img src="legend/Nascente_13.png" /> Nascente', layer: layer_Nascente_13},
+            {label: '<img src="legend/CursoDgua_12.png" /> Curso D\'Água', layer: layer_CursoDgua_12},
+            {label: '<img src="legend/Banhado_11.png" /> Banhado', layer: layer_Banhado_11},
+            {label: '<img src="legend/Aude_10.png" /> Açude', layer: layer_Aude_10},
+            {label: '<img src="legend/APP_9.png" /> APP', layer: layer_APP_9},]},
+        {label: '<b>Sobreposições</b>', collapsed: true, selectAllCheckbox: true, children: [
+            {label: '<img src="legend/EstradaFaixadeServido_8.png" /> Estrada - Faixa de Servidão', layer: layer_EstradaFaixadeServido_8},
+            {label: '<img src="legend/APPFaixadeServido_7.png" /> APP - Faixa de Servidão', layer: layer_APPFaixadeServido_7},]},
+        {label: '<b>Orto_Seg_2026</b>', collapsed: true, selectAllCheckbox: true, children: [
+            {label: "Orto_Seg_2026-1-2", layer: layer_Orto_Seg_202612_6},
+            {label: "Orto_Seg_2026-1-1", layer: layer_Orto_Seg_202611_5},
+            {label: "Orto_Seg_2026-1-0", layer: layer_Orto_Seg_202610_4},
+            {label: "Orto_Seg_2026-0-2", layer: layer_Orto_Seg_202602_3},
+            {label: "Orto_Seg_2026-0-1", layer: layer_Orto_Seg_202601_2},
+            {label: "Orto_Seg_2026-0-0", layer: layer_Orto_Seg_202600_1},]},
+            {label: 'Google Satélite', layer: layer_GoogleSatellite_0},
+            {label: '<b>Documentação</b>', collapsed: true, children: [
+                {label: '<b>Matrícula</b>', collapsed: true, children: [
+                    docLink('Matrícula 9.870', 'docs/matriculas/Matricula_9.870.pdf')
+                ]},
+                {label: '<b>CAR</b>', collapsed: true, children: [
+                    docLink('CAR 9.870', 'docs/car/CAR_9.870.pdf')
+                ]},
+                {label: '<b>ANEEL</b>', collapsed: true, children: [
+                    docLink('Resolução Autorizativa nº 15.973/2025', 'docs/ANEEL/Resolucao_ANEEL.pdf')
+                ]}
+            ]},
+            docLink('<b>Tabela de Uso do Solo - Áreas</b>', 'uso_do_solo_arvoredo.html')
+        ];
+        var lay = L.control.layers.tree(null, overlaysTree, {
+            collapsed: true,
+            closedSymbol: '+',
+            openedSymbol: '−'
+        }).addTo(map);
+
+        var layersContainer = lay.getContainer();
+        var layersToggle = layersContainer.querySelector('.leaflet-control-layers-toggle');
+        map.off('click', lay.collapse, lay);
+        L.DomEvent.off(layersToggle, 'focus', lay.expand, lay);
+        ['mouseover', 'mouseout', 'mouseenter', 'mouseleave'].forEach(function (eventName) {
+            layersContainer.addEventListener(eventName, function (event) {
+                event.stopImmediatePropagation();
+            }, true);
+        });
+        layersToggle.title = 'Camadas';
+        layersToggle.setAttribute('aria-label', 'Camadas');
+        layersToggle.setAttribute('aria-expanded', 'false');
+        function toggleLayers(event) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            var open = !layersContainer.classList.contains('leaflet-control-layers-expanded');
+            if (open) lay.expand();
+            else lay.collapse();
+            layersToggle.setAttribute('aria-expanded', String(open));
+            document.body.classList.toggle('layers-open', open);
+        }
+        layersToggle.addEventListener('click', toggleLayers, true);
+        layersToggle.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') toggleLayers(event);
+        }, true);
+
+        var talhaoLabels = L.layerGroup();
+        map.createPane('pane_EntradaSelection');
+        map.getPane('pane_EntradaSelection').style.zIndex = 650;
+        map.getPane('pane_EntradaSelection').style.pointerEvents = 'none';
+
+        var talhaoSelection = L.geoJSON(null, {
+            pane: 'pane_EntradaSelection',
+            interactive: false,
+            style: {color: '#ffdf54', weight: 3, fillColor: '#ffdf54', fillOpacity: 0.25}
+        }).addTo(map);
+        var selectedTalhao = null;
+        var selectedLabel = null;
+
+        function clearTalhaoSelection() {
+            talhaoSelection.clearLayers();
+            if (selectedLabel) selectedLabel.setAttribute('aria-pressed', 'false');
+            selectedTalhao = null;
+            selectedLabel = null;
+        }
+
+        var labelProjectionZoom = 19;
+        var standLabels = [];
+
+        // Signed distance to the nearest edge, including the edges of any holes.
+        function standEdgeDistance(point, rings) {
+            var inside = false;
+            var distance = Infinity;
+            rings.forEach(function (ring) {
+                for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                    var a = ring[j], b = ring[i];
+                    if ((a.y > point.y) !== (b.y > point.y) &&
+                        point.x < a.x + (b.x - a.x) * (point.y - a.y) / (b.y - a.y)) {
+                        inside = !inside;
+                    }
+                    distance = Math.min(distance, L.LineUtil.pointToSegmentDistance(point, a, b));
+                }
+            });
+            return inside ? distance : -distance;
+        }
+
+        function standLabelPlacement(polygon) {
+            var rings = polygon.getLatLngs();
+            var parts = polygon.feature.geometry.type === 'MultiPolygon' ? rings : [rings];
+            var best = null;
+
+            parts.forEach(function (part) {
+                if (!part[0] || part[0].length < 3) return;
+                var projected = part.map(function (ring) {
+                    return ring.map(function (point) { return map.project(point, labelProjectionZoom); });
+                });
+                var bounds = L.bounds(projected[0]);
+                var size = bounds.getSize();
+                if (!size.x || !size.y) return;
+
+                function makeCell(point, halfSize) {
+                    var distance = standEdgeDistance(point, projected);
+                    return {point: point, halfSize: halfSize, distance: distance,
+                        upperBound: distance + halfSize * Math.SQRT2, rings: projected};
+                }
+
+                // Search for the interior point with the most room around it.
+                var cells = [makeCell(bounds.getCenter(), Math.max(size.x, size.y) / 2)];
+                while (cells.length) {
+                    var cell = cells.pop();
+                    if (cell.distance > 0 && (!best || cell.distance > best.distance)) best = cell;
+                    if (cell.upperBound <= (best ? best.distance : 0) + 0.25) continue;
+
+                    var half = cell.halfSize / 2;
+                    var x = cell.point.x, y = cell.point.y;
+                    var children = [
+                        makeCell(L.point(x - half, y - half), half),
+                        makeCell(L.point(x + half, y - half), half),
+                        makeCell(L.point(x - half, y + half), half),
+                        makeCell(L.point(x + half, y + half), half)
+                    ];
+                    children.sort(function (a, b) { return a.upperBound - b.upperBound; });
+                    cells.push.apply(cells, children);
+                }
+            });
+
+            return best;
+        }
+
+        function standLabelFits(placement, halfWidth, halfHeight) {
+            if (Math.hypot(halfWidth, halfHeight) < placement.distance) return true;
+
+            // The label is inside if no boundary segment intersects its rectangle.
+            var center = placement.point;
+            return placement.rings.every(function (ring) {
+                return ring.every(function (a, index) {
+                    var b = ring[(index + 1) % ring.length];
+                    if (Math.max(a.x, b.x) < center.x - halfWidth ||
+                        Math.min(a.x, b.x) > center.x + halfWidth ||
+                        Math.max(a.y, b.y) < center.y - halfHeight ||
+                        Math.min(a.y, b.y) > center.y + halfHeight) return true;
+
+                    var dx = b.x - a.x, dy = b.y - a.y;
+                    return Math.abs(dx * (center.y - a.y) - dy * (center.x - a.x)) >
+                        Math.abs(dx) * halfHeight + Math.abs(dy) * halfWidth;
+                });
+            });
+        }
+
+        function updateStandLabelVisibility() {
+            if (!map.hasLayer(talhaoLabels)) return;
+            var scale = map.getZoomScale(map.getZoom(), labelProjectionZoom);
+            standLabels.forEach(function (stand) {
+                var halfWidth = (stand.label.offsetWidth / 2 + 2) / scale;
+                var halfHeight = (stand.label.offsetHeight / 2 + 2) / scale;
+                stand.label.style.visibility = standLabelFits(stand.placement, halfWidth, halfHeight)
+                    ? '' : 'hidden';
+            });
+        }
+
+        layer_Talhes_18.eachLayer(function (polygon) {
+            var props = polygon.feature.properties;
+            var code = props.COD_TALHAO || props.ID_TALHAO;
+            if (!code || !polygon.getBounds().isValid()) return;
+
+            var placement = standLabelPlacement(polygon);
+            if (!placement) return;
+
+            var label = document.createElement('button');
+            label.type = 'button';
+            label.className = 'entrada-label';
+            label.setAttribute('aria-pressed', 'false');
+            var codeLine = document.createElement('span');
+            codeLine.textContent = String(code);
+            label.appendChild(codeLine);
+            if (props.area_ha != null && Number.isFinite(Number(props.area_ha))) {
+                var areaLine = document.createElement('span');
+                areaLine.textContent = formatPtBR(Number(props.area_ha), 3) + ' ha';
+                label.appendChild(areaLine);
+            }
+
+            var center = map.unproject(placement.point, labelProjectionZoom);
+            var marker = L.marker(center, {
+                pane: 'pane_EntradaLabels',
+                icon: labelIcon(label),
+                keyboard: false,
+                bubblingMouseEvents: true
+            });
+            label.addEventListener('click', function (event) {
+                if (measureActive || notesMode) return;
+                event.stopPropagation();
+                var alreadySelected = selectedTalhao === polygon;
+                clearTalhaoSelection();
+                if (!alreadySelected) {
+                    talhaoSelection.addData(polygon.feature);
+                    selectedTalhao = polygon;
+                    selectedLabel = label;
+                    label.setAttribute('aria-pressed', 'true');
+                }
+            });
+            talhaoLabels.addLayer(marker);
+            standLabels.push({label: label, placement: placement});
+        });
+
+        var LabelControl = L.Control.extend({
+            options: {position: 'topleft'},
+            onAdd: function () {
+                var container = L.DomUtil.create('div', 'leaflet-bar ecomap-labels-controls');
+                L.DomEvent.disableClickPropagation(container);
+                function addToggle(text, title, layer) {
+                    var link = L.DomUtil.create('a', '', container);
+                    link.href = '#';
+                    link.textContent = text;
+                    link.title = title;
+                    link.setAttribute('aria-label', title);
+                    link.setAttribute('role', 'button');
+                    function update() {
+                        var visible = map.hasLayer(layer);
+                        link.setAttribute('aria-pressed', String(visible));
+                        link.classList.toggle('is-active', visible);
+                    }
+                    L.DomEvent.on(link, 'click', function (event) {
+                        L.DomEvent.stop(event);
+                        if (map.hasLayer(layer)) map.removeLayer(layer);
+                        else map.addLayer(layer);
+                    });
+                    layer.on('add remove', update);
+                    update();
+                }
+                addToggle('123', 'Mostrar ou ocultar os números das matrículas', layer_matricula_dot_21);
+                addToggle('T', 'Mostrar ou ocultar os rótulos dos talhões', talhaoLabels);
+                return container;
+            }
+        });
+        talhaoLabels.on('add', updateStandLabelVisibility);
+        talhaoLabels.on('remove', clearTalhaoSelection);
+        map.on('zoomend', updateStandLabelVisibility);
+        map.addControl(new LabelControl());
+
+        </script>        
+    </body>
+</html>
