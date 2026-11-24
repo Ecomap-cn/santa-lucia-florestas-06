@@ -1,0 +1,1 @@
+var json_matricula_dot_16 = {"type":"FeatureCollection","name":"matricula_dot_16","crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}},"features":[{"type":"Feature","properties":{"fid":"1","Matricula":"17.169"},"geometry":{"type":"Point","coordinates":[-50.985557474899871,-27.549883468558143]}}]}
